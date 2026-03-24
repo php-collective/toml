@@ -1,0 +1,8 @@
+values = [
+  1,
+  # middle comment
+  2,
+]
+
+[server]
+host = "localhost"

@@ -1,6 +1,6 @@
 # Encoding
 
-toml-php can encode PHP arrays and objects to TOML format.
+toml-php encodes PHP arrays to TOML and supports explicit value wrappers for TOML local date/time/datetime literals.
 
 ## Basic Encoding
 
@@ -26,18 +26,22 @@ host = "localhost"
 port = 5432
 ```
 
-## Supported Types
+## Supported Input Types
 
 | PHP Type | TOML Output |
 |----------|-------------|
 | `string` | Basic string `"value"` |
 | `int` | Integer `42` |
 | `float` | Float `3.14` |
-| `bool` | Boolean `true`/`false` |
+| `bool` | Boolean `true` / `false` |
 | `array` (list) | Array `[1, 2, 3]` |
-| `array` (assoc) | Table `[section]` |
-| `DateTimeInterface` | Datetime `2024-01-15T10:30:00Z` |
-| `null` | *(skipped)* |
+| `array` (assoc) | Table or inline table depending on position |
+| `DateTimeInterface` | Offset datetime |
+| `PhpCollective\Toml\Value\LocalDate` | Local date |
+| `PhpCollective\Toml\Value\LocalTime` | Local time |
+| `PhpCollective\Toml\Value\LocalDateTime` | Local datetime |
+
+`null` is not supported and throws `EncodeException`.
 
 ## Encoder Options
 
@@ -45,8 +49,8 @@ port = 5432
 use PhpCollective\Toml\Encoder\EncoderOptions;
 
 $options = new EncoderOptions(
-    sortKeys: true,        // Sort keys alphabetically
-    inlineThreshold: 3,    // Inline tables with ≤3 keys
+    sortKeys: true,
+    newline: "\n",
 );
 
 $toml = Toml::encode($data, $options);
@@ -70,25 +74,62 @@ mango = 3
 zebra = 1
 ```
 
-### Inline Tables
-
-Small associative arrays can be rendered as inline tables:
+### Custom Newlines
 
 ```php
 $toml = Toml::encode([
-    'point' => ['x' => 1, 'y' => 2],
-], new EncoderOptions(inlineThreshold: 3));
+    'name' => 'test',
+    'count' => 42,
+], new EncoderOptions(newline: "\r\n"));
+```
+
+## Date and Time Encoding
+
+### Offset Datetime
+
+Use `DateTimeInterface` for TOML offset datetimes:
+
+```php
+$toml = Toml::encode([
+    'created' => new DateTimeImmutable('2024-01-15T10:30:00Z'),
+]);
 ```
 
 Output:
 
 ```toml
-point = { x = 1, y = 2 }
+created = 2024-01-15T10:30:00.000000+00:00
 ```
+
+### Local Date, Time, and DateTime
+
+Use explicit wrappers for TOML local temporal values:
+
+```php
+use PhpCollective\Toml\Value\LocalDate;
+use PhpCollective\Toml\Value\LocalDateTime;
+use PhpCollective\Toml\Value\LocalTime;
+
+$toml = Toml::encode([
+    'date' => new LocalDate('2024-03-15'),
+    'time' => new LocalTime('10:30:45'),
+    'timestamp' => new LocalDateTime('2024-03-15T10:30:45'),
+]);
+```
+
+Output:
+
+```toml
+date = 2024-03-15
+time = 10:30:45
+timestamp = 2024-03-15T10:30:45
+```
+
+Plain PHP strings are always encoded as TOML strings, not temporal literals.
 
 ## Array of Tables
 
-Sequential arrays of associative arrays become array of tables:
+Sequential arrays of associative arrays become array-of-tables:
 
 ```php
 $toml = Toml::encode([
@@ -111,22 +152,6 @@ name = "beta"
 ip = "10.0.0.2"
 ```
 
-## DateTime Handling
-
-```php
-$toml = Toml::encode([
-    'created' => new DateTimeImmutable('2024-01-15T10:30:00Z'),
-    'updated' => new DateTime('2024-01-15T10:30:00', new DateTimeZone('America/New_York')),
-]);
-```
-
-Output:
-
-```toml
-created = 2024-01-15T10:30:00Z
-updated = 2024-01-15T10:30:00-05:00
-```
-
 ## Special Float Values
 
 ```php
@@ -147,7 +172,7 @@ not_a_number = nan
 
 ## String Escaping
 
-Strings are automatically escaped:
+Strings are emitted as basic strings with escapes:
 
 ```php
 $toml = Toml::encode([
@@ -165,8 +190,6 @@ path = "C:\\Users\\name"
 
 ## Re-encoding from AST
 
-After parsing and modifying an AST:
-
 ```php
 $document = Toml::parse($originalToml);
 
@@ -176,27 +199,31 @@ $toml = Toml::encodeDocument($document);
 ```
 
 ::: warning
-Currently, `encodeDocument()` normalizes the document. Original formatting (whitespace, comments, key styles) is not preserved. The output is semantically equivalent but may look different.
+`encodeDocument()` can preserve parsed comments, blank lines, some lexical styles, and collection-local layout when the document was created with `Toml::parse($input, true)`. It is still not a full lossless formatter.
 :::
+
+When you edit the AST, nodes without preserved trivia fall back to canonical local formatting. For example, inserted inline-table entries encode with single spaces, and inserted items in multiline parsed arrays reuse inferred indentation when possible.
 
 ## Error Handling
 
-Encoding throws `EncodeException` for unsupported types:
+Encoding throws `EncodeException` for unsupported values:
 
 ```php
 use PhpCollective\Toml\Exception\EncodeException;
 
 try {
     $toml = Toml::encode([
-        'callback' => fn() => 'hello',  // Closures not supported
+        'callback' => fn() => 'hello',
     ]);
 } catch (EncodeException $e) {
     echo $e->getMessage();
 }
 ```
 
-Unsupported types:
-- Closures
-- Resources
-- Objects without `DateTimeInterface`
-- Circular references
+Common unsupported values:
+
+- `null`
+- closures
+- resources
+- arbitrary objects that do not implement the TOML value contract
+- circular references

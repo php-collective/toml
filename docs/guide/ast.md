@@ -69,8 +69,8 @@ $key->styles;  // array<KeyStyle> - style for each part
 
 `KeyStyle` enum:
 - `Bare` - unquoted key
-- `BasicString` - `"quoted"`
-- `LiteralString` - `'quoted'`
+- `Basic` - `"quoted"`
+- `Literal` - `'quoted'`
 
 ## Value Types
 
@@ -148,11 +148,52 @@ Every node has position information via `getSpan()`:
 
 ```php
 $span = $node->getSpan();
-$span->line;       // 1-based line number
-$span->column;     // 1-based column number
-$span->offset;     // 0-based byte offset
-$span->endOffset;  // End position
+$span->line;    // 1-based line number
+$span->column;  // 1-based column number
+$span->start;   // 0-based byte offset
+$span->end;     // End byte offset
 ```
+
+## Trivia Preservation
+
+You can ask the parser to retain leading and trailing trivia for document items and table entries:
+
+```php
+$document = Toml::parse($tomlString, true);
+
+$item = $document->items[0];
+$leading = $item->getLeadingTrivia();
+$trailing = $item->getTrailingTrivia();
+```
+
+Trivia currently includes:
+
+- whitespace
+- comments
+- line endings attached to parsed items
+
+Each `Trivia` object has:
+
+```php
+$trivia->kind;   // TriviaKind::Whitespace, Comment, or Newline
+$trivia->value;  // The raw text (e.g., "# my comment\n")
+$trivia->span;   // Source location
+```
+
+This is useful for editor tooling and source-aware analysis. When you re-encode with `Toml::encodeDocument()`, preserved trivia is included in the output.
+
+Arrays and inline tables can also retain collection-local trivia used for round-trip encoding:
+
+```php
+$document = Toml::parse($tomlString, true);
+$array = $document->items[0]->value;
+
+$array->openingTrivia;      // trivia after '[' when available
+$array->closingTrivia;      // trivia before ']' when available
+$array->hasTrailingComma;   // whether the parsed array ended with a trailing comma
+```
+
+That collection-local trivia is primarily intended for editor-style round-trip encoding rather than for semantic analysis.
 
 ## Walking the AST
 
@@ -186,10 +227,12 @@ function findKey(Document $doc, string $path): ?Value
 After modifying the AST, encode back to TOML:
 
 ```php
+use PhpCollective\Toml\Ast\Value\StringStyle;
 use PhpCollective\Toml\Ast\Value\StringValue;
+use PhpCollective\Toml\Lexer\Span;
 
 // Modify a value
-$document->items[0]->value = new StringValue('new value');
+$document->items[0]->value = new StringValue('new value', StringStyle::Basic, new Span(0, 0, 1, 1));
 
 // Re-encode
 $toml = Toml::encodeDocument($document);
@@ -230,8 +273,8 @@ echo "Definition at line {$span->line}, column {$span->column}";
 
 // Highlight value range
 $valueSpan = $keyValue->value->getSpan();
-$start = $valueSpan->offset;
-$end = $valueSpan->endOffset;
+$start = $valueSpan->start;
+$end = $valueSpan->end;
 ```
 
 ### Schema Generation

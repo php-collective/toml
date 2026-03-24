@@ -1,0 +1,4 @@
+name = "value"
+
+[name]
+child = 1

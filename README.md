@@ -9,6 +9,7 @@ A TOML (v1.0 and v1.1) parser and encoder for PHP with AST access and collected 
 - Clean architecture with separate Lexer, Parser, and AST
 - Zero required extensions (optional php-ds for performance)
 - AST access for analysis or editor integrations
+- Explicit local date/time/datetime value objects for encoding
 
 ## Requirements
 
@@ -19,6 +20,14 @@ A TOML (v1.0 and v1.1) parser and encoder for PHP with AST access and collected 
 ```bash
 composer require php-collective/toml
 ```
+
+See [docs/reference/support-matrix.md](docs/reference/support-matrix.md) for the current support matrix and known gaps.
+
+For explicit local temporal encoding, use:
+
+- `PhpCollective\Toml\Value\LocalDate`
+- `PhpCollective\Toml\Value\LocalTime`
+- `PhpCollective\Toml\Value\LocalDateTime`
 
 ## Quick Start
 
@@ -66,6 +75,10 @@ if ($result->isValid()) {
 
 // Parse to AST for analysis
 $document = Toml::parse($tomlString);
+
+// Parse without exceptions and keep diagnostics + partial AST
+$result = Toml::tryParse($tomlString);
+$document = $result->getDocument();
 ```
 
 ### Encoding
@@ -111,39 +124,35 @@ foreach ($result->getErrors() as $error) {
 
 ## Supported Syntax
 
-The library supports TOML 1.0 and 1.1 features including:
+The library currently supports:
 
 - All string types (basic, literal, multi-line)
 - Integers (decimal, hex, octal, binary)
 - Floats (including inf, nan)
 - Booleans
 - Dates and times (offset, local datetime, local date, local time)
-- Arrays (with trailing commas allowed)
-- Inline tables (trailing commas rejected per spec)
+- Arrays (including multiline arrays and trailing commas)
+- Inline tables (single-line only; trailing commas rejected)
 - Tables and array of tables
 - Dotted keys
-
-### TOML 1.1 Features
-
-- Optional seconds in datetime/time values
-- `\xHH` escape sequences (2-digit hex)
-- `\e` escape sequence (escape character)
-- Space as datetime separator (alongside 'T')
 
 ## Limitations
 
 - **Integer range**: Integers are parsed using PHP's native `int` type. Values exceeding `PHP_INT_MAX` (typically 9223372036854775807 on 64-bit systems) will be silently clamped. If you need arbitrary precision integers, consider post-processing with GMP.
-- **Round-trip preservation**: Comments and original formatting are not yet preserved when re-encoding.
+- **Round-trip preservation**: `encodeDocument()` can now preserve parsed comments, blank lines, key styles, string styles, and collection-local layout for parsed arrays and inline tables when trivia is available, but it is not yet a full lossless formatter.
+- **Temporal encode asymmetry**: Offset datetimes encode from `DateTimeInterface`, but local date/time/datetime values require explicit wrappers instead of plain strings.
+- **Support breadth**: See [docs/reference/support-matrix.md](docs/reference/support-matrix.md) for partially supported and not-yet-implemented TOML features.
+- **Compatibility**: See [docs/reference/compatibility.md](docs/reference/compatibility.md) and [UPGRADING.md](UPGRADING.md) for API and parser-strictness expectations.
 
 ## Comparison with Other PHP Libraries
 
 | Feature | php-collective/toml | Others |
 |---------|---------------------|--------|
-| TOML Version | 1.1 | 1.0 or older |
+| Support matrix | Yes | Varies |
 | Error Recovery | Yes | No |
 | Multiple Errors | Yes | No |
 | AST Access | Yes | Limited/No |
-| Round-trip formatting preservation | Not yet | Varies |
+| Round-trip formatting preservation | Partial | Varies |
 | PHP 8.2+ Features | Yes | Varies |
 
 ## License

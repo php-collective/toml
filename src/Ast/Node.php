@@ -19,4 +19,18 @@ interface Node
      * @return array<\PhpCollective\Toml\Ast\Trivia>
      */
     public function getTrailingTrivia(): array;
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $trivia
+     *
+     * @return void
+     */
+    public function setLeadingTrivia(array $trivia): void;
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $trivia
+     *
+     * @return void
+     */
+    public function setTrailingTrivia(array $trivia): void;
 }

@@ -63,6 +63,7 @@ export default defineConfig({
           items: [
             { text: 'API', link: '/reference/api' },
             { text: 'Architecture', link: '/reference/architecture' },
+            { text: 'Compatibility', link: '/reference/compatibility' },
             { text: 'Support Matrix', link: '/reference/support-matrix' },
             { text: 'Limitations', link: '/reference/limitations' },
           ],

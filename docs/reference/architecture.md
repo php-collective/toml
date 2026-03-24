@@ -74,8 +74,8 @@ foreach ($lexer->tokenize() as $token) {
 The parser (`src/Parser/Parser.php`) builds an AST from the token stream:
 
 ```php
-$parser = new Parser($input);
-$document = $parser->parse();
+$parser = new Parser();
+$document = $parser->parse($input);
 ```
 
 **Key characteristics:**
@@ -128,6 +128,8 @@ $toml = $encoder->encode($array);
 - Table structure detection
 - Array of tables handling
 - Special float value support
+- Explicit local temporal value wrappers for encoding
+- AST-aware re-encoding with partial trivia preservation when available
 
 ## Error Handling
 
@@ -166,7 +168,7 @@ Toml::encode($array)
 ### Round-trip (with AST)
 
 ```php
-$doc = Toml::parse($input);      // string → Document
+$doc = Toml::parse($input, true);      // string → Document
 // Modify $doc...
 $toml = Toml::encodeDocument($doc); // Document → string
 ```

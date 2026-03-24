@@ -187,6 +187,31 @@ function listAllKeys(Document $doc, string $prefix = ''): array
 }
 ```
 
+### Editing While Preserving Layout
+
+```php
+use PhpCollective\Toml\Ast\Key;
+use PhpCollective\Toml\Ast\KeyStyle;
+use PhpCollective\Toml\Ast\KeyValue;
+use PhpCollective\Toml\Ast\Value\IntegerBase;
+use PhpCollective\Toml\Ast\Value\IntegerValue;
+use PhpCollective\Toml\Lexer\Span;
+
+$document = Toml::parse("point = { x = 1 }\n", true);
+$inlineTable = $document->items[0]->value;
+
+$inlineTable->items[] = new KeyValue(
+    new Key(['y'], [KeyStyle::Bare], new Span(0, 0, 1, 1)),
+    new IntegerValue(2, IntegerBase::Decimal, new Span(0, 0, 1, 1)),
+    new Span(0, 0, 1, 1),
+);
+
+echo Toml::encodeDocument($document);
+// point = { x = 1, y = 2 }
+```
+
+When inserted nodes do not carry trivia, `encodeDocument()` falls back to canonical local formatting instead of trying to guess arbitrary whitespace.
+
 ## Type Conversion
 
 ### DateTime Handling
@@ -292,6 +317,64 @@ updateConfig('config.toml', [
 ]);
 ```
 
+### Encoding Local Temporal Values
+
+Use explicit wrappers for TOML local date/time literals:
+
+```php
+use PhpCollective\Toml\Toml;
+use PhpCollective\Toml\Value\LocalDate;
+use PhpCollective\Toml\Value\LocalDateTime;
+use PhpCollective\Toml\Value\LocalTime;
+
+$toml = Toml::encode([
+    'event' => [
+        'date' => new LocalDate('2024-12-25'),
+        'start_time' => new LocalTime('09:00:00'),
+        'created' => new LocalDateTime('2024-01-15T10:30:00'),
+    ],
+]);
+```
+
+Output:
+
+```toml
+[event]
+date = 2024-12-25
+start_time = 09:00:00
+created = 2024-01-15T10:30:00
+```
+
+### Round-Trip with Comment Preservation
+
+Parse with trivia to preserve comments during re-encoding:
+
+```php
+$input = <<<'TOML'
+# Server configuration
+[server]
+host = "localhost"  # Change for production
+port = 8080
+TOML;
+
+// Parse with trivia preservation enabled
+$document = Toml::parse($input, true);
+
+// Modify a value in the AST (public properties can be changed directly)
+foreach ($document->items as $item) {
+    if ($item instanceof \PhpCollective\Toml\Ast\Table) {
+        foreach ($item->items as $kv) {
+            if ($kv->key->parts === ['port'] && $kv->value instanceof \PhpCollective\Toml\Ast\Value\IntegerValue) {
+                $kv->value->value = 9000;
+            }
+        }
+    }
+}
+
+// Re-encode preserves comments
+$output = Toml::encodeDocument($document);
+```
+
 ## Framework Integration
 
 ### Laravel Service Provider
@@ -347,5 +430,136 @@ class TomlExtension extends Extension
             }
         }
     }
+}
+```
+
+### CakePHP ConfigEngine
+
+CakePHP's `Configure` class supports pluggable engines. Create a TOML engine to load `.toml` config files:
+
+```php
+// src/Core/Configure/Engine/TomlConfigEngine.php
+namespace App\Core\Configure\Engine;
+
+use Cake\Core\Configure\ConfigEngineInterface;
+use Cake\Core\Exception\CakeException;
+use PhpCollective\Toml\Toml;
+
+class TomlConfigEngine implements ConfigEngineInterface
+{
+    protected string $path;
+
+    public function __construct(string $path = CONFIG)
+    {
+        $this->path = $path;
+    }
+
+    public function read(string $key): array
+    {
+        $file = $this->path . $key . '.toml';
+
+        if (!is_file($file)) {
+            throw new CakeException("Could not load configuration file: {$file}");
+        }
+
+        return Toml::decodeFile($file);
+    }
+
+    public function dump(string $key, array $data): bool
+    {
+        $file = $this->path . $key . '.toml';
+
+        return file_put_contents($file, Toml::encode($data)) !== false;
+    }
+}
+```
+
+Register it in `config/bootstrap.php`:
+
+```php
+use App\Core\Configure\Engine\TomlConfigEngine;
+use Cake\Core\Configure;
+
+Configure::config('toml', new TomlConfigEngine());
+```
+
+Now you can use TOML config files:
+
+```php
+// Load config/app_local.toml
+Configure::load('app_local', 'toml');
+
+// Access values
+$debug = Configure::read('debug');
+```
+
+Example `config/app_local.toml`:
+
+```toml
+debug = true
+
+[database]
+host = "localhost"
+username = "app_user"
+database = "my_app"
+
+[email]
+transport = "smtp"
+host = "smtp.example.com"
+port = 587
+```
+
+### CakePHP Feature Flags
+
+Use TOML for readable feature toggles:
+
+```toml
+# config/features.toml
+[features]
+new_dashboard = true
+beta_api = false
+dark_mode = true
+
+[rollout]
+# Percentage rollout (0.0 to 1.0)
+new_checkout = 0.25
+```
+
+```php
+// src/Utility/FeatureFlags.php
+namespace App\Utility;
+
+use Cake\Core\Configure;
+
+class FeatureFlags
+{
+    public static function isEnabled(string $feature): bool
+    {
+        return (bool)Configure::read("features.{$feature}", false);
+    }
+
+    public static function isEnabledForUser(string $feature, int $userId): bool
+    {
+        $rollout = Configure::read("rollout.{$feature}");
+
+        if ($rollout === null) {
+            return static::isEnabled($feature);
+        }
+
+        // Deterministic rollout based on user ID
+        return ($userId % 100) < ($rollout * 100);
+    }
+}
+```
+
+Usage in controllers or templates:
+
+```php
+if (FeatureFlags::isEnabled('new_dashboard')) {
+    // Show new dashboard
+}
+
+if (FeatureFlags::isEnabledForUser('new_checkout', $user->id)) {
+    // Show new checkout flow for this user
 }
 ```

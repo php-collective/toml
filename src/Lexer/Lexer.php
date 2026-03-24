@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace PhpCollective\Toml\Lexer;
 
 use DateTimeImmutable;
-use Exception;
 use Generator;
+use PhpCollective\Toml\Support\TemporalValidator;
 
 final class Lexer
 {
@@ -710,54 +710,22 @@ final class Lexer
 
     private function isValidOffsetDateTime(string $value): bool
     {
-        if (preg_match('/^\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:[Zz]|[+-]\d{2}:\d{2})$/', $value) !== 1) {
-            return false;
-        }
-
-        $normalized = str_replace(' ', 'T', $value);
-
-        try {
-            new DateTimeImmutable($normalized);
-        } catch (Exception) {
-            return false;
-        }
-
-        if (preg_match('/^(\d{4}-\d{2}-\d{2})[Tt ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(?:[Zz]|[+-]\d{2}:\d{2})$/', $value, $matches) !== 1) {
-            return false;
-        }
-
-        return $this->isValidLocalDate($matches[1]) && $this->isValidLocalTime($matches[2]);
+        return TemporalValidator::isValidOffsetDateTime($value);
     }
 
     private function isValidLocalDateTime(string $value): bool
     {
-        if (preg_match('/^(\d{4}-\d{2}-\d{2})[Tt ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)$/', $value, $matches) !== 1) {
-            return false;
-        }
-
-        return $this->isValidLocalDate($matches[1]) && $this->isValidLocalTime($matches[2]);
+        return TemporalValidator::isValidLocalDateTime($value);
     }
 
     private function isValidLocalDate(string $value): bool
     {
-        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $matches) !== 1) {
-            return false;
-        }
-
-        return checkdate((int)$matches[2], (int)$matches[3], (int)$matches[1]);
+        return TemporalValidator::isValidLocalDate($value);
     }
 
     private function isValidLocalTime(string $value): bool
     {
-        if (preg_match('/^(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/', $value, $matches) !== 1) {
-            return false;
-        }
-
-        $hour = (int)$matches[1];
-        $minute = (int)$matches[2];
-        $second = isset($matches[3]) && $matches[3] !== '' ? (int)$matches[3] : 0;
-
-        return $hour <= 23 && $minute <= 59 && $second <= 59;
+        return TemporalValidator::isValidLocalTime($value);
     }
 
     private function isBareKeyChar(string $char): bool

@@ -6,8 +6,28 @@ namespace PhpCollective\Toml\Encoder;
 
 use DateTimeInterface;
 use PhpCollective\Toml\Ast\Document;
+use PhpCollective\Toml\Ast\Key;
+use PhpCollective\Toml\Ast\KeyStyle;
+use PhpCollective\Toml\Ast\KeyValue;
+use PhpCollective\Toml\Ast\Node;
+use PhpCollective\Toml\Ast\Table;
+use PhpCollective\Toml\Ast\Trivia;
+use PhpCollective\Toml\Ast\Value\ArrayValue;
+use PhpCollective\Toml\Ast\Value\BoolValue;
+use PhpCollective\Toml\Ast\Value\FloatValue;
+use PhpCollective\Toml\Ast\Value\InlineTable;
+use PhpCollective\Toml\Ast\Value\IntegerBase;
+use PhpCollective\Toml\Ast\Value\IntegerValue;
+use PhpCollective\Toml\Ast\Value\LocalDate;
+use PhpCollective\Toml\Ast\Value\LocalDateTime;
+use PhpCollective\Toml\Ast\Value\LocalTime;
+use PhpCollective\Toml\Ast\Value\OffsetDateTime;
+use PhpCollective\Toml\Ast\Value\StringStyle;
+use PhpCollective\Toml\Ast\Value\StringValue;
+use PhpCollective\Toml\Ast\Value\Value;
 use PhpCollective\Toml\Exception\EncodeException;
 use PhpCollective\Toml\Normalizer;
+use PhpCollective\Toml\Value\TomlValue;
 
 final class Encoder
 {
@@ -29,11 +49,13 @@ final class Encoder
 
     public function encodeDocument(Document $doc): string
     {
-        // For now, normalize and encode
-        // TODO: Implement trivia preservation
-        $normalizer = new Normalizer();
+        if (!$this->documentHasTrivia($doc)) {
+            $normalizer = new Normalizer();
 
-        return $this->encode($normalizer->normalize($doc));
+            return $this->encode($normalizer->normalize($doc));
+        }
+
+        return $this->encodeAstItems($doc->items);
     }
 
     /**
@@ -114,6 +136,10 @@ final class Encoder
             return $value->format('Y-m-d\TH:i:s.uP');
         }
 
+        if ($value instanceof TomlValue) {
+            return $value->toTomlLiteral();
+        }
+
         if (is_array($value)) {
             if ($this->isInlineArray($value)) {
                 return $this->encodeArray($value);
@@ -123,6 +149,374 @@ final class Encoder
         }
 
         throw new EncodeException('Cannot encode value of type ' . gettype($value));
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Table|\PhpCollective\Toml\Ast\KeyValue> $items
+     */
+    private function encodeAstItems(array $items): string
+    {
+        $output = '';
+        $count = count($items);
+
+        foreach ($items as $index => $item) {
+            $encoded = $this->encodeAstItem($item);
+            $output .= $encoded;
+
+            if ($index < $count - 1 && !$this->endsWithNewline($encoded)) {
+                $output .= $this->options->newline;
+            }
+        }
+
+        return $output;
+    }
+
+    private function encodeAstItem(Node $item): string
+    {
+        $output = $this->encodeTrivia($item->getLeadingTrivia());
+
+        if ($item instanceof Table) {
+            $header = $item->isArrayTable
+                ? '[[' . $this->encodeAstKey($item->key) . ']]'
+                : '[' . $this->encodeAstKey($item->key) . ']';
+            $output .= $header;
+            $output .= $this->encodeTrivia($item->getTrailingTrivia());
+
+            if ($item->items !== []) {
+                if ($item->getTrailingTrivia() === []) {
+                    $output .= $this->options->newline;
+                }
+                $output .= $this->encodeAstItems($item->items);
+            }
+
+            return $output;
+        }
+
+        if ($item instanceof KeyValue) {
+            $output .= $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value);
+            $output .= $this->encodeTrivia($item->getTrailingTrivia());
+
+            return $output;
+        }
+
+        throw new EncodeException('Unsupported AST node for document encoding');
+    }
+
+    private function encodeAstKey(Key $key): string
+    {
+        $parts = [];
+
+        foreach ($key->parts as $index => $part) {
+            $style = $key->styles[$index] ?? KeyStyle::Bare;
+            $parts[] = match ($style) {
+                KeyStyle::Bare => preg_match('/^[a-zA-Z0-9_-]+$/', $part) ? $part : $this->encodeString($part),
+                KeyStyle::Basic => $this->encodeString($part),
+                KeyStyle::Literal => "'" . $part . "'",
+            };
+        }
+
+        return implode('.', $parts);
+    }
+
+    private function encodeAstValue(Value $value): string
+    {
+        return match (true) {
+            $value instanceof StringValue => $this->encodeAstStringValue($value),
+            $value instanceof IntegerValue => $this->encodeAstIntegerValue($value),
+            $value instanceof FloatValue => $this->encodeValue($value->value),
+            $value instanceof BoolValue => $value->value ? 'true' : 'false',
+            $value instanceof OffsetDateTime => $value->raw,
+            $value instanceof LocalDateTime,
+            $value instanceof LocalDate,
+            $value instanceof LocalTime => $value->value,
+            $value instanceof ArrayValue => $this->encodeAstArray($value),
+            $value instanceof InlineTable => $this->encodeAstInlineTable($value),
+            default => throw new EncodeException('Unsupported AST value for document encoding'),
+        };
+    }
+
+    private function encodeAstStringValue(StringValue $value): string
+    {
+        return match ($value->style) {
+            StringStyle::Basic => $this->encodeString($value->value),
+            StringStyle::Literal => "'" . $value->value . "'",
+            StringStyle::MultiLineBasic => $this->encodeMultilineBasicString($value->value),
+            StringStyle::MultiLineLiteral => "'''\n" . $value->value . "'''",
+        };
+    }
+
+    private function encodeAstIntegerValue(IntegerValue $value): string
+    {
+        $number = $value->value;
+        $sign = $number < 0 ? '-' : '';
+        $absolute = abs($number);
+
+        return match ($value->base) {
+            IntegerBase::Decimal => (string)$number,
+            IntegerBase::Hexadecimal => $sign . '0x' . strtoupper(dechex($absolute)),
+            IntegerBase::Octal => $sign . '0o' . decoct($absolute),
+            IntegerBase::Binary => $sign . '0b' . decbin($absolute),
+        };
+    }
+
+    private function encodeAstArray(ArrayValue $value): string
+    {
+        $output = '[';
+        $multiline = $this->isMultilineArray($value);
+        $indent = $multiline ? $this->inferArrayIndentation($value) : null;
+
+        if ($value->items === []) {
+            return $output . $this->encodeTrivia($value->openingTrivia) . ']';
+        }
+
+        foreach ($value->items as $index => $item) {
+            $leadingTrivia = $item->getLeadingTrivia();
+            if ($leadingTrivia !== []) {
+                $output .= $this->encodeTrivia($leadingTrivia);
+            } else {
+                $output .= $this->defaultArrayItemPrefix($value, $index, $multiline, $indent);
+            }
+
+            $output .= $this->encodeAstValue($item);
+
+            $trailingTrivia = $item->getTrailingTrivia();
+            if ($trailingTrivia !== []) {
+                $output .= $this->encodeTrivia($trailingTrivia);
+            }
+
+            if ($index < count($value->items) - 1 || $value->hasTrailingComma) {
+                $output .= ',';
+            }
+        }
+
+        $output .= $this->encodeTrivia($value->closingTrivia);
+
+        return $output . ']';
+    }
+
+    private function encodeAstInlineTable(InlineTable $value): string
+    {
+        $output = '{';
+
+        if ($value->items === []) {
+            return $output . $this->encodeTrivia($value->openingTrivia) . '}';
+        }
+
+        foreach ($value->items as $index => $item) {
+            $leadingTrivia = $item->getLeadingTrivia();
+            if ($leadingTrivia !== []) {
+                $output .= $this->encodeTrivia($leadingTrivia);
+            } else {
+                $output .= $index === 0 ? ($value->openingTrivia !== [] ? $this->encodeTrivia($value->openingTrivia) : ' ') : ' ';
+            }
+
+            $output .= $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value);
+
+            $trailingTrivia = $item->getTrailingTrivia();
+            if ($trailingTrivia !== []) {
+                if (!($index < count($value->items) - 1 && $this->triviaIsOnlyWhitespace($trailingTrivia))) {
+                    $output .= $this->encodeTrivia($trailingTrivia);
+                }
+            } elseif ($index === count($value->items) - 1 && $value->closingTrivia === []) {
+                $output .= ' ';
+            }
+
+            if ($index < count($value->items) - 1) {
+                $output .= ',';
+            }
+        }
+
+        $output .= $this->encodeTrivia($value->closingTrivia);
+
+        return $output . '}';
+    }
+
+    private function encodeMultilineBasicString(string $value): string
+    {
+        $escaped = str_replace(
+            ['\\', '"""', "\t", "\x08", "\x0C", "\r"],
+            ['\\\\', '\"""', '\\t', '\\b', '\\f', '\\r'],
+            $value,
+        );
+
+        return "\"\"\"\n{$escaped}\"\"\"";
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $trivia
+     */
+    private function encodeTrivia(array $trivia): string
+    {
+        return implode('', array_map(static fn (Trivia $item) => $item->value, $trivia));
+    }
+
+    private function documentHasTrivia(Document $doc): bool
+    {
+        foreach ($doc->items as $item) {
+            if ($item->getLeadingTrivia() !== [] || $item->getTrailingTrivia() !== []) {
+                return true;
+            }
+
+            if ($item instanceof KeyValue && $this->astValueHasTrivia($item->value)) {
+                return true;
+            }
+
+            if ($item instanceof Table) {
+                foreach ($item->items as $child) {
+                    if ($child->getLeadingTrivia() !== [] || $child->getTrailingTrivia() !== []) {
+                        return true;
+                    }
+
+                    if ($this->astValueHasTrivia($child->value)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function astValueHasTrivia(Value $value): bool
+    {
+        if ($value->getLeadingTrivia() !== [] || $value->getTrailingTrivia() !== []) {
+            return true;
+        }
+
+        if ($value instanceof ArrayValue) {
+            if ($value->openingTrivia !== [] || $value->closingTrivia !== [] || $value->hasTrailingComma) {
+                return true;
+            }
+
+            foreach ($value->items as $item) {
+                if ($this->astValueHasTrivia($item)) {
+                    return true;
+                }
+            }
+        }
+
+        if ($value instanceof InlineTable) {
+            if ($value->openingTrivia !== [] || $value->closingTrivia !== []) {
+                return true;
+            }
+
+            foreach ($value->items as $item) {
+                if ($item->getLeadingTrivia() !== [] || $item->getTrailingTrivia() !== []) {
+                    return true;
+                }
+
+                if ($this->astValueHasTrivia($item->value)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function defaultArrayItemPrefix(ArrayValue $value, int $index, bool $multiline, ?string $indent): string
+    {
+        if ($index === 0) {
+            if ($value->openingTrivia !== []) {
+                return $this->encodeTrivia($value->openingTrivia);
+            }
+
+            return '';
+        }
+
+        if ($multiline) {
+            return $this->options->newline . ($indent ?? '');
+        }
+
+        return ' ';
+    }
+
+    private function isMultilineArray(ArrayValue $value): bool
+    {
+        if ($this->triviaContainsNewline($value->openingTrivia) || $this->triviaContainsNewline($value->closingTrivia)) {
+            return true;
+        }
+
+        foreach ($value->items as $item) {
+            if ($this->triviaContainsNewline($item->getLeadingTrivia()) || $this->triviaContainsNewline($item->getTrailingTrivia())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function inferArrayIndentation(ArrayValue $value): ?string
+    {
+        $indent = $this->extractIndentationFromTrivia($value->openingTrivia);
+        if ($indent !== null) {
+            return $indent;
+        }
+
+        foreach ($value->items as $item) {
+            $indent = $this->extractIndentationFromTrivia($item->getLeadingTrivia());
+            if ($indent !== null) {
+                return $indent;
+            }
+
+            $indent = $this->extractIndentationFromTrivia($item->getTrailingTrivia());
+            if ($indent !== null) {
+                return $indent;
+            }
+        }
+
+        $indent = $this->extractIndentationFromTrivia($value->closingTrivia);
+
+        return $indent;
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $trivia
+     */
+    private function triviaContainsNewline(array $trivia): bool
+    {
+        foreach ($trivia as $item) {
+            if (str_contains($item->value, "\n")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $trivia
+     */
+    private function extractIndentationFromTrivia(array $trivia): ?string
+    {
+        $buffer = $this->encodeTrivia($trivia);
+        $lastNewline = strrpos($buffer, "\n");
+        if ($lastNewline === false) {
+            return null;
+        }
+
+        $indent = substr($buffer, $lastNewline + 1);
+
+        return preg_match('/^[ \t]*$/', $indent) === 1 ? $indent : null;
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $trivia
+     */
+    private function triviaIsOnlyWhitespace(array $trivia): bool
+    {
+        foreach ($trivia as $item) {
+            if (!preg_match('/^[ \t]+$/', $item->value)) {
+                return false;
+            }
+        }
+
+        return $trivia !== [];
+    }
+
+    private function endsWithNewline(string $value): bool
+    {
+        return str_ends_with($value, "\n") || str_ends_with($value, "\r\n");
     }
 
     private function encodeString(string $value): string

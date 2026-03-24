@@ -1,0 +1,2 @@
+"a.b" = 1
+value = { nested.key = 2, plain = 3 }

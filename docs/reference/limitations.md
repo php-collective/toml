@@ -33,27 +33,32 @@ nano = 2024-01-15T10:30:00.123456789Z
 
 ## Comment Preservation
 
-Comments are not preserved when re-encoding:
+Comments can be preserved by `encodeDocument()` when the AST was parsed with trivia enabled:
 
 ```toml
-# This comment will be lost
+# This comment can be preserved
 key = "value"  # This too
 ```
 
-After `encode()` or `encodeDocument()`:
+Example:
 
-```toml
-key = "value"
+```php
+$document = Toml::parse($input, true);
+$toml = Toml::encodeDocument($document);
 ```
+
+Plain `encode()` still emits normalized TOML and does not preserve source comments.
 
 ## Formatting Preservation
 
-Original formatting is not preserved when re-encoding:
+Original formatting is only partially preserved during AST re-encoding:
 
-- Whitespace normalization
-- Key style changes (quoted → bare if possible)
-- Table ordering may change
-- Inline tables may be expanded
+- Leading and trailing trivia on document items and table entries can be preserved
+- Key quoting style can be preserved
+- String style can be preserved
+- Table ordering can be preserved
+- Collection-local layout for parsed arrays and inline tables can now be preserved
+- Unedited documents can still lose formatting in unsupported cases such as delimiter-adjacent trivia that is not represented in the AST
 
 ```toml
 # Original
@@ -61,8 +66,8 @@ Original formatting is not preserved when re-encoding:
 ```
 
 ```toml
-# After re-encode (may vary)
-my-key = { x = 1, y = 2 }
+# After re-encode (usually preserved for parsed inline tables)
+"my-key" = { x = 1, y = 2 }
 ```
 
 ## Local DateTime Types
@@ -82,21 +87,30 @@ This is because local dates have no timezone information, making `DateTimeImmuta
 $date = DateTimeImmutable::createFromFormat('Y-m-d', $config['date']);
 ```
 
-## Null Values
-
-TOML has no null type. PHP `null` values are skipped when encoding:
+For encoding local temporal TOML literals, use explicit wrappers:
 
 ```php
+use PhpCollective\Toml\Value\LocalDate;
+
 $toml = Toml::encode([
-    'present' => 'value',
-    'missing' => null,  // Skipped
+    'date' => new LocalDate('2024-03-15'),
 ]);
-// Result: present = "value"
+```
+
+## Null Values
+
+TOML has no null type. PHP `null` values throw `EncodeException` during encoding:
+
+```php
+Toml::encode([
+    'present' => 'value',
+    'missing' => null,
+]); // Throws EncodeException
 ```
 
 ## Object Encoding
 
-Only `DateTimeInterface` objects are supported for encoding. Other objects must be converted to arrays:
+Only `DateTimeInterface` objects and explicit TOML value wrappers are supported for direct object encoding. Other objects must be converted to arrays:
 
 ```php
 // This throws EncodeException
@@ -139,7 +153,9 @@ key = "very deep"
 
 These limitations are planned for future versions:
 
-- [ ] Comment preservation for round-trip editing
-- [ ] Formatting preservation
+- [x] Comment preservation for round-trip editing
+- [ ] Full formatting preservation
+- [x] Collection-local trivia preservation
 - [ ] Optional GMP support for big integers
 - [ ] Streaming parser for very large files
+- [ ] Broader conformance-style test coverage

@@ -73,9 +73,12 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 | Array of tables | Supported | |
 | Quoted keys when needed | Supported | |
 | `DateTimeInterface` | Partial | Encoded as offset datetime with microseconds and offset |
-| Local datetime/date/time typed output | Not Yet | Plain strings are emitted as quoted strings |
+| `PhpCollective\Toml\Value\LocalDate` | Supported | Encoded as local date literal |
+| `PhpCollective\Toml\Value\LocalTime` | Supported | Encoded as local time literal |
+| `PhpCollective\Toml\Value\LocalDateTime` | Supported | Encoded as local datetime literal |
+| Plain string to local temporal literal coercion | Not Yet | Plain strings are emitted as quoted strings |
 | Null values | Supported | Rejected with `EncodeException` |
-| Original lexical style preservation | Not Yet | Encoder normalizes output |
+| Original lexical style preservation | Partial | `encodeDocument()` can preserve parsed key and string styles |
 
 ## AST and Round-Trip Editing
 
@@ -83,10 +86,11 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 |---------|--------|-------|
 | AST node access | Supported | |
 | Span information | Supported | |
-| Trivia preservation | Not Yet | Public API shape exists, behavior is not implemented |
-| Comment preservation on re-encode | Not Yet | |
-| Formatting preservation on re-encode | Not Yet | |
-| `encodeDocument()` round-trip fidelity | Partial | Re-encodes normalized content, not original formatting |
+| Trivia preservation on document items and table entries | Partial | Available through `Toml::parse($input, true)` for leading/trailing trivia on parsed items |
+| Trivia preservation inside parsed arrays and inline tables | Partial | Collection-local item spacing and comments are preserved where represented in the AST |
+| Comment preservation on re-encode | Partial | Preserved for parsed document items, table entries, and collection items when trivia is available |
+| Formatting preservation on re-encode | Partial | Blank lines, some lexical styles, and collection-local layout are preserved, but not all formatting forms |
+| `encodeDocument()` round-trip fidelity | Partial | Better for parsed documents with trivia, still not a full lossless formatter |
 
 ## Tooling and Errors
 
@@ -101,9 +105,9 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 
 - The decoder supports more TOML temporal forms than the encoder can emit.
 - Multiline inline tables are not currently supported.
-- `encodeDocument()` does not preserve comments or original formatting.
-- `EncoderOptions::inlineTableMaxKeys` is currently unused.
-- `EncoderOptions::preserveTrivia` is currently unused.
+- `encodeDocument()` still does not preserve all original formatting details.
+- AST editing falls back to canonical local formatting when new nodes do not carry trivia.
+- Inline table formatting options beyond key sorting and newline selection are not implemented.
 
 ## Recommended Use Today
 
@@ -116,6 +120,6 @@ This library is a reasonable fit for:
 It is not yet a strong fit for:
 
 - lossless TOML editing
-- comment-preserving rewrites
+- partial comment-preserving rewrites
 - formatter-style round-trip transformations
 - conformance-grade claims without a larger corpus

@@ -27,7 +27,7 @@ $config = Toml::decode('[server]\nhost = "localhost"');
 public static function decodeFile(string $path): array
 ```
 
-Decodes a TOML file to a PHP array. Throws `ParseException` on parse error or `RuntimeException` if file cannot be read.
+Decodes a TOML file to a PHP array. Throws `ParseException` on parse error or unreadable files.
 
 ```php
 $config = Toml::decodeFile('/path/to/config.toml');
@@ -36,10 +36,12 @@ $config = Toml::decodeFile('/path/to/config.toml');
 ### parse
 
 ```php
-public static function parse(string $input): Document
+public static function parse(string $input, bool $preserveTrivia = false): Document
 ```
 
-Parses a TOML string to an AST Document. Throws `ParseException` on error.
+Parses a TOML string to an AST `Document`.
+
+- `$preserveTrivia`: when `true`, attaches leading and trailing trivia to parsed document items and table entries
 
 ```php
 $document = Toml::parse($tomlString);
@@ -65,6 +67,8 @@ if ($result->isValid()) {
 }
 ```
 
+Use `tryParse()` when you need diagnostics and a partial AST instead of exception-driven control flow.
+
 ### encode
 
 ```php
@@ -87,10 +91,12 @@ public static function encodeDocument(Document $document, ?EncoderOptions $optio
 Encodes an AST Document to a TOML string.
 
 ```php
-$document = Toml::parse($original);
+$document = Toml::parse($original, true);
 // Modify document...
 $toml = Toml::encodeDocument($document);
 ```
+
+When the document carries preserved trivia, `encodeDocument()` can preserve parsed comments, blank lines, some lexical styles, and some collection-local layout. Without trivia, it falls back to normalized output.
 
 ---
 
@@ -172,8 +178,8 @@ Position information for tokens and AST nodes.
 ### Properties
 
 ```php
-public readonly int $offset;     // 0-based byte offset from start
-public readonly int $endOffset;  // End byte offset
+public readonly int $start;      // 0-based byte offset from start
+public readonly int $end;        // End byte offset
 public readonly int $line;       // 1-based line number
 public readonly int $column;     // 1-based column number
 ```
@@ -189,12 +195,42 @@ Options for TOML encoding.
 ```php
 public function __construct(
     bool $sortKeys = false,
-    int $inlineThreshold = 0,
+    string $newline = "\n",
 )
 ```
 
 - `$sortKeys`: Sort keys alphabetically in output
-- `$inlineThreshold`: Maximum keys for inline table rendering (0 = never inline)
+- `$newline`: Newline sequence to use during encoding
+
+---
+
+## Explicit Encoder Value Types
+
+Use these when you need TOML local temporal literals during encoding instead of quoted strings.
+
+### LocalDate
+
+```php
+public function __construct(string $value)
+```
+
+Encodes as a TOML local date literal like `2024-03-15`.
+
+### LocalTime
+
+```php
+public function __construct(string $value)
+```
+
+Encodes as a TOML local time literal like `10:30:45`.
+
+### LocalDateTime
+
+```php
+public function __construct(string $value)
+```
+
+Encodes as a TOML local datetime literal like `2024-03-15T10:30:45`.
 
 ---
 
@@ -273,11 +309,11 @@ public array $styles;          // Style for each part
 Enum for key styles.
 
 ```php
-enum KeyStyle
+enum KeyStyle: string
 {
-    case Bare;           // key
-    case BasicString;    // "key"
-    case LiteralString;  // 'key'
+    case Bare = 'bare';       // key
+    case Basic = 'basic';     // "key"
+    case Literal = 'literal'; // 'key'
 }
 ```
 
@@ -354,7 +390,7 @@ public array $items;
 
 ### ParseException
 
-Thrown when parsing fails (in decode/parse methods).
+Thrown when decoding fails or when a TOML file cannot be read.
 
 ```php
 use PhpCollective\Toml\Exception\ParseException;
@@ -368,7 +404,7 @@ try {
 
 ### EncodeException
 
-Thrown when encoding fails.
+Thrown when encoding fails because a PHP value cannot be represented as TOML.
 
 ```php
 use PhpCollective\Toml\Exception\EncodeException;

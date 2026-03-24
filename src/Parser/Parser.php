@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace PhpCollective\Toml\Parser;
 
+use LogicException;
 use PhpCollective\Toml\Ast\Document;
 use PhpCollective\Toml\Ast\Key;
 use PhpCollective\Toml\Ast\KeyStyle;
 use PhpCollective\Toml\Ast\KeyValue;
 use PhpCollective\Toml\Ast\Table;
+use PhpCollective\Toml\Ast\Trivia;
+use PhpCollective\Toml\Ast\TriviaKind;
 use PhpCollective\Toml\Ast\Value\ArrayValue;
 use PhpCollective\Toml\Ast\Value\BoolValue;
 use PhpCollective\Toml\Ast\Value\FloatValue;
@@ -41,9 +44,6 @@ final class Parser
 
     private int $pos = 0;
 
-    /**
-     * @phpstan-ignore-next-line Reserved for trivia preservation
-     */
     private bool $preserveTrivia;
 
     public function __construct(bool $preserveTrivia = false)
@@ -75,7 +75,10 @@ final class Parser
         $currentTable = null;
 
         while (!$this->isAtEnd()) {
-            $this->skipTrivia();
+            $leadingTrivia = $this->preserveTrivia ? $this->collectLeadingTrivia() : [];
+            if (!$this->preserveTrivia) {
+                $this->skipTrivia();
+            }
 
             if ($this->isAtEnd()) {
                 break;
@@ -86,12 +89,20 @@ final class Parser
             if ($token->is(TokenType::LeftBracket)) {
                 $table = $this->parseTableHeader();
                 if ($table !== null) {
+                    if ($this->preserveTrivia) {
+                        $table->setLeadingTrivia($leadingTrivia);
+                        $table->setTrailingTrivia($this->collectTrailingTrivia());
+                    }
                     $doc->items[] = $table;
                     $currentTable = $table;
                 }
             } elseif ($token->is(TokenType::BareKey, TokenType::BasicString, TokenType::LiteralString)) {
                 $kv = $this->parseKeyValue();
                 if ($kv !== null) {
+                    if ($this->preserveTrivia) {
+                        $kv->setLeadingTrivia($leadingTrivia);
+                        $kv->setTrailingTrivia($this->collectTrailingTrivia());
+                    }
                     if ($currentTable !== null) {
                         $currentTable->items[] = $kv;
                     } else {
@@ -317,31 +328,61 @@ final class Parser
         $this->advance(); // skip [
 
         $items = [];
+        $openingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
+        $closingTrivia = [];
+        $hasTrailingComma = false;
+        $nextLeadingTrivia = $openingTrivia;
 
         while (!$this->check(TokenType::RightBracket) && !$this->isAtEnd()) {
-            $this->skipTriviaInCollection();
+            if (!$this->preserveTrivia) {
+                $this->skipTriviaInCollection();
+            }
 
             if ($this->check(TokenType::RightBracket)) {
+                if ($items === []) {
+                    $closingTrivia = $nextLeadingTrivia;
+                }
+
                 break;
             }
 
             $value = $this->parseValue();
             if ($value !== null) {
+                if ($this->preserveTrivia) {
+                    $value->setLeadingTrivia($nextLeadingTrivia);
+                }
                 $items[] = $value;
             }
 
-            $this->skipTriviaInCollection();
+            $trailingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
+            if (!$this->preserveTrivia) {
+                $this->skipTriviaInCollection();
+            }
 
             if (!$this->check(TokenType::RightBracket)) {
                 if (!$this->match(TokenType::Comma)) {
                     break;
                 }
+
+                if ($value !== null && $this->preserveTrivia) {
+                    $value->setTrailingTrivia($trailingTrivia);
+                }
+
+                $nextLeadingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
+                if ($this->check(TokenType::RightBracket)) {
+                    $hasTrailingComma = true;
+                    $closingTrivia = $nextLeadingTrivia;
+
+                    break;
+                }
+            } elseif ($value !== null && $this->preserveTrivia) {
+                $value->setTrailingTrivia($trailingTrivia);
             }
         }
 
         $this->expect(TokenType::RightBracket);
 
-        return new ArrayValue($items, $start->merge($this->previous()->span));
+        return new ArrayValue($items, $start->merge($this->previous()->span), $openingTrivia, $closingTrivia, $hasTrailingComma);
     }
 
     private function parseInlineTable(): InlineTable
@@ -350,36 +391,62 @@ final class Parser
         $this->advance(); // skip {
 
         $items = [];
+        $openingTrivia = $this->preserveTrivia ? $this->collectInlineTableTrivia() : [];
+        $closingTrivia = [];
+        $nextLeadingTrivia = $openingTrivia;
 
         while (!$this->check(TokenType::RightBrace) && !$this->isAtEnd()) {
-            $this->skipWhitespace(); // Only whitespace allowed, not newlines
+            if (!$this->preserveTrivia) {
+                $this->skipWhitespace(); // Only whitespace allowed, not newlines
+            }
 
             if ($this->check(TokenType::RightBrace)) {
+                if ($items === []) {
+                    $closingTrivia = $nextLeadingTrivia;
+                }
+
                 break;
             }
 
             $kv = $this->parseKeyValue();
             if ($kv !== null) {
+                if ($this->preserveTrivia) {
+                    $kv->setLeadingTrivia($nextLeadingTrivia);
+                }
                 $items[] = $kv;
             }
 
-            $this->skipWhitespace();
+            $trailingTrivia = $this->preserveTrivia ? $this->collectInlineTableTrivia() : [];
+            if (!$this->preserveTrivia) {
+                $this->skipWhitespace();
+            }
 
             if (!$this->check(TokenType::RightBrace)) {
                 if (!$this->match(TokenType::Comma)) {
                     break;
                 }
+                if ($kv !== null && $this->preserveTrivia) {
+                    $kv->setTrailingTrivia($trailingTrivia);
+                }
+
                 // Check for trailing comma - not allowed in inline tables
-                $this->skipWhitespace();
+                if ($this->preserveTrivia) {
+                    $nextLeadingTrivia = $this->collectInlineTableTrivia();
+                } else {
+                    $this->skipWhitespace();
+                }
                 if ($this->check(TokenType::RightBrace)) {
                     $this->error('Trailing comma not allowed in inline table', $this->current()->span);
+                    $closingTrivia = $nextLeadingTrivia;
                 }
+            } elseif ($kv !== null && $this->preserveTrivia) {
+                $kv->setTrailingTrivia($trailingTrivia);
             }
         }
 
         $this->expect(TokenType::RightBrace);
 
-        return new InlineTable($items, $start->merge($this->previous()->span));
+        return new InlineTable($items, $start->merge($this->previous()->span), $openingTrivia, $closingTrivia);
     }
 
     // Helper methods
@@ -399,6 +466,9 @@ final class Parser
         return $this->current()->type === TokenType::Eof;
     }
 
+    /**
+     * @phpstan-impure
+     */
     private function check(TokenType $type): bool
     {
         return $this->current()->type === $type;
@@ -461,6 +531,78 @@ final class Parser
         while ($this->check(TokenType::Whitespace) || $this->check(TokenType::Comment) || $this->check(TokenType::Newline)) {
             $this->advance();
         }
+    }
+
+    /**
+     * @return array<\PhpCollective\Toml\Ast\Trivia>
+     */
+    private function collectLeadingTrivia(): array
+    {
+        $trivia = [];
+
+        while ($this->check(TokenType::Whitespace) || $this->check(TokenType::Comment) || $this->check(TokenType::Newline)) {
+            $trivia[] = $this->toTrivia($this->advance());
+        }
+
+        return $trivia;
+    }
+
+    /**
+     * @return array<\PhpCollective\Toml\Ast\Trivia>
+     */
+    private function collectTrailingTrivia(): array
+    {
+        $trivia = [];
+
+        while ($this->check(TokenType::Whitespace) || $this->check(TokenType::Comment)) {
+            $trivia[] = $this->toTrivia($this->advance());
+        }
+
+        if ($this->check(TokenType::Newline)) {
+            $trivia[] = $this->toTrivia($this->advance());
+        }
+
+        return $trivia;
+    }
+
+    /**
+     * @return array<\PhpCollective\Toml\Ast\Trivia>
+     */
+    private function collectCollectionTrivia(): array
+    {
+        $trivia = [];
+
+        while ($this->check(TokenType::Whitespace) || $this->check(TokenType::Comment) || $this->check(TokenType::Newline)) {
+            $trivia[] = $this->toTrivia($this->advance());
+        }
+
+        return $trivia;
+    }
+
+    /**
+     * @return array<\PhpCollective\Toml\Ast\Trivia>
+     */
+    private function collectInlineTableTrivia(): array
+    {
+        $trivia = [];
+
+        while ($this->check(TokenType::Whitespace)) {
+            $trivia[] = $this->toTrivia($this->advance());
+        }
+
+        return $trivia;
+    }
+
+    private function toTrivia(Token $token): Trivia
+    {
+        $kind = match ($token->type) {
+            TokenType::Whitespace => TriviaKind::Whitespace,
+            TokenType::Comment => TriviaKind::Comment,
+            TokenType::Newline => TriviaKind::Newline,
+            default => throw new LogicException("Token {$token->type->value} is not trivia"),
+        };
+
+        return new Trivia($kind, $token->value, $token->span);
     }
 
     private function error(string $message, Span $span, ?string $hint = null): void

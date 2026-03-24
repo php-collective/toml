@@ -72,7 +72,7 @@ final class Toml
     }
 
     /**
-     * Parse to AST for analysis or round-trip editing.
+     * Parse to AST for analysis or normalized re-encoding.
      */
     public static function parse(string $input, bool $preserveTrivia = false): Document
     {
@@ -95,7 +95,7 @@ final class Toml
     }
 
     /**
-     * Encode AST document (for round-trip preservation).
+     * Encode AST document as normalized TOML output.
      */
     public static function encodeDocument(Document $doc, ?EncoderOptions $options = null): string
     {

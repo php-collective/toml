@@ -13,8 +13,8 @@ hero:
       text: Get Started
       link: /guide/
     - theme: alt
-      text: Support Matrix
-      link: /reference/support-matrix
+      text: Syntax Reference
+      link: /guide/syntax
     - theme: alt
       text: View on GitHub
       link: https://github.com/php-collective/toml
@@ -34,7 +34,7 @@ features:
     details: No required extensions - pure PHP 8.2+ with optional php-ds for performance
   - icon: 🔄
     title: Structured Re-Encode
-    details: Parse TOML to an AST, modify nodes, and re-encode normalized TOML output
+    details: Parse TOML to an AST, modify nodes, and re-encode with partial trivia and layout preservation
   - icon: 📝
     title: Detailed Errors
     details: Rich error messages with line/column info and hints for common mistakes

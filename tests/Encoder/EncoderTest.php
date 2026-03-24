@@ -8,6 +8,9 @@ use DateTimeImmutable;
 use PhpCollective\Toml\Encoder\Encoder;
 use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Exception\EncodeException;
+use PhpCollective\Toml\Value\LocalDate;
+use PhpCollective\Toml\Value\LocalDateTime;
+use PhpCollective\Toml\Value\LocalTime;
 use PHPUnit\Framework\TestCase;
 
 final class EncoderTest extends TestCase
@@ -155,6 +158,18 @@ final class EncoderTest extends TestCase
         $this->assertLessThan($zebraPos, $mangoPos);
     }
 
+    public function testEncodeWithCustomNewline(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(newline: "\r\n"));
+
+        $result = $encoder->encode([
+            'name' => 'test',
+            'count' => 42,
+        ]);
+
+        $this->assertStringContainsString("\r\n", $result);
+    }
+
     public function testEncodeNullThrowsException(): void
     {
         $encoder = new Encoder(new EncoderOptions());
@@ -208,5 +223,20 @@ final class EncoderTest extends TestCase
         ]);
 
         $this->assertStringContainsString('mixed = [1, "two", 3.0, true]', $result);
+    }
+
+    public function testEncodeLocalTemporalValues(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'date' => new LocalDate('2024-03-15'),
+            'time' => new LocalTime('10:30:45'),
+            'timestamp' => new LocalDateTime('2024-03-15T10:30:45'),
+        ]);
+
+        $this->assertStringContainsString('date = 2024-03-15', $result);
+        $this->assertStringContainsString('time = 10:30:45', $result);
+        $this->assertStringContainsString('timestamp = 2024-03-15T10:30:45', $result);
     }
 }

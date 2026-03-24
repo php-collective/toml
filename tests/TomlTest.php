@@ -8,6 +8,9 @@ use PhpCollective\Toml\Ast\Document;
 use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Exception\ParseException;
 use PhpCollective\Toml\Toml;
+use PhpCollective\Toml\Value\LocalDate;
+use PhpCollective\Toml\Value\LocalDateTime;
+use PhpCollective\Toml\Value\LocalTime;
 use PHPUnit\Framework\TestCase;
 
 final class TomlTest extends TestCase
@@ -200,5 +203,20 @@ TOML);
         $this->expectExceptionMessage("Cannot redefine key 'a' as an array table");
 
         Toml::decode("a = []\n[[a]]\nb = 1\n");
+    }
+
+    public function testEncodeSupportsExplicitLocalTemporalValues(): void
+    {
+        $encoded = Toml::encode([
+            'date' => new LocalDate('2024-03-15'),
+            'time' => new LocalTime('10:30:45'),
+            'timestamp' => new LocalDateTime('2024-03-15 10:30:45'),
+        ]);
+
+        $decoded = Toml::decode($encoded);
+
+        $this->assertSame('2024-03-15', $decoded['date']);
+        $this->assertSame('10:30:45', $decoded['time']);
+        $this->assertSame('2024-03-15 10:30:45', $decoded['timestamp']);
     }
 }

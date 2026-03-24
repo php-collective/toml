@@ -132,6 +132,25 @@ This library supports TOML 1.1 enhancements:
 - **Escape character**: `\e` for the escape character (0x1B)
 - **Space separator** in datetime: `1979-05-27 07:32:00` alongside `T`
 
+## Local Temporal Encoding
+
+When encoding local temporal TOML values, use explicit wrappers instead of plain strings:
+
+```php
+use PhpCollective\Toml\Toml;
+use PhpCollective\Toml\Value\LocalDate;
+use PhpCollective\Toml\Value\LocalDateTime;
+use PhpCollective\Toml\Value\LocalTime;
+
+$toml = Toml::encode([
+    'date' => new LocalDate('2024-03-15'),
+    'time' => new LocalTime('10:30:45'),
+    'timestamp' => new LocalDateTime('2024-03-15T10:30:45'),
+]);
+```
+
+See the [support matrix](../reference/support-matrix) for current parser and encoder coverage.
+
 ## Next Steps
 
 - [Syntax Reference](./syntax) - Learn TOML syntax

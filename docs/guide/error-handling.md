@@ -57,6 +57,8 @@ $result->getErrors();  // array<ParseError>
 $result->getDocument(); // Document|null
 ```
 
+In the current implementation, `getDocument()` is still available for invalid input, which makes `tryParse()` suitable for tooling that needs partial structure plus diagnostics.
+
 ### ParseError Structure
 
 Each error contains:
@@ -74,8 +76,8 @@ $span = $error->span;
 
 $span->line;         // int - 1-based line number
 $span->column;       // int - 1-based column number
-$span->offset;       // int - 0-based byte offset
-$span->endOffset;    // int - End position
+$span->start;        // int - 0-based byte offset
+$span->end;          // int - End position
 ```
 
 ## Formatted Error Output
@@ -176,6 +178,8 @@ When encoding to TOML, `EncodeException` is thrown for:
 
 - Circular references
 - Unserializable types (resources, closures)
+- Unsupported objects
+- `null` values
 
 ```php
 use PhpCollective\Toml\Exception\EncodeException;

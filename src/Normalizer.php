@@ -65,7 +65,7 @@ final class Normalizer
                 $normalized = $this->normalizeValue($item->value);
                 $this->setDocumentValue($result, $item->key->parts, $normalized['value'], $item->getSpan());
                 if ($normalized['isInlineTable']) {
-                    $this->sealedInlineTables[implode('.', $item->key->parts)] = $item->getSpan();
+                    $this->sealedInlineTables[$this->pathId($item->key->parts)] = $item->getSpan();
                 }
             } elseif ($item instanceof Table) {
                 $this->processTable($result, $item);
@@ -113,7 +113,7 @@ final class Normalizer
             );
             if ($normalized['isInlineTable']) {
                 $fullPath = [...$this->activeInternalPath, ...$kv->key->parts];
-                $this->sealedInlineTables[implode('.', $fullPath)] = $kv->getSpan();
+                $this->sealedInlineTables[$this->pathId($fullPath)] = $kv->getSpan();
             }
         }
     }
@@ -210,7 +210,7 @@ final class Normalizer
             if (!array_key_exists($key, $current)) {
                 $current[$key] = [];
                 $internalPrefix[] = $key;
-                $this->definedTables[implode('.', $internalPrefix)] ??= ['kind' => 'implicit', 'span' => $span];
+                $this->definedTables[$this->pathId($internalPrefix)] ??= ['kind' => 'implicit', 'span' => $span];
                 $current = &$current[$key];
 
                 continue;
@@ -228,14 +228,14 @@ final class Normalizer
                 $internalPrefix[] = '#' . (string)$lastEntry;
                 $current = &$current[$key][$lastEntry];
             } else {
-                $this->definedTables[implode('.', $internalPrefix)] ??= ['kind' => 'implicit', 'span' => $span];
+                $this->definedTables[$this->pathId($internalPrefix)] ??= ['kind' => 'implicit', 'span' => $span];
                 $current = &$current[$key];
             }
         }
 
         $displayPath = implode('.', [...$displayPrefix, $leafKey]);
         $internalPath = [...$internalPrefix, $leafKey];
-        $internalPathString = implode('.', $internalPath);
+        $internalPathString = $this->pathId($internalPath);
 
         if (isset($this->definedKeys[$internalPathString])) {
             $this->errors[] = new ParseError("Cannot redefine key '{$displayPath}' as a table", $span);
@@ -294,7 +294,7 @@ final class Normalizer
             if (!array_key_exists($key, $current)) {
                 $current[$key] = [];
                 $internalPrefix[] = $key;
-                $this->definedTables[implode('.', $internalPrefix)] ??= ['kind' => 'implicit', 'span' => $span];
+                $this->definedTables[$this->pathId($internalPrefix)] ??= ['kind' => 'implicit', 'span' => $span];
                 $current = &$current[$key];
 
                 continue;
@@ -312,14 +312,14 @@ final class Normalizer
                 $internalPrefix[] = '#' . (string)$lastEntry;
                 $current = &$current[$key][$lastEntry];
             } else {
-                $this->definedTables[implode('.', $internalPrefix)] ??= ['kind' => 'implicit', 'span' => $span];
+                $this->definedTables[$this->pathId($internalPrefix)] ??= ['kind' => 'implicit', 'span' => $span];
                 $current = &$current[$key];
             }
         }
 
         $displayPath = implode('.', [...$displayPrefix, $leafKey]);
         $internalPath = [...$internalPrefix, $leafKey];
-        $internalPathString = implode('.', $internalPath);
+        $internalPathString = $this->pathId($internalPath);
 
         if (isset($this->definedKeys[$internalPathString])) {
             $this->errors[] = new ParseError("Cannot redefine key '{$displayPath}' as an array table", $span);
@@ -383,8 +383,9 @@ final class Normalizer
         foreach ($path as $i => $key) {
             $checkPath[] = $key;
             $checkPathStr = implode('.', $checkPath);
+            $checkPathId = $this->pathId($checkPath);
             // If this intermediate path is sealed AND there's more path to traverse, reject
-            if ($i < $lastIndex && isset($this->sealedInlineTables[$checkPathStr])) {
+            if ($i < $lastIndex && isset($this->sealedInlineTables[$checkPathId])) {
                 $this->errors[] = new ParseError(
                     "Cannot extend inline table '{$checkPathStr}' with dotted keys",
                     $span,
@@ -402,7 +403,7 @@ final class Normalizer
             $displayPrefix[] = $key;
             $internalPrefix[] = $key;
             $displayPath = implode('.', $displayPrefix);
-            $internalPath = implode('.', $internalPrefix);
+            $internalPath = $this->pathId($internalPrefix);
 
             if ($i === $lastIndex) {
                 if (isset($definedKeys[$internalPath])) {
@@ -450,5 +451,13 @@ final class Normalizer
                 $current = &$current[$key];
             }
         }
+    }
+
+    /**
+     * @param array<string> $segments
+     */
+    private function pathId(array $segments): string
+    {
+        return json_encode($segments, JSON_THROW_ON_ERROR);
     }
 }
