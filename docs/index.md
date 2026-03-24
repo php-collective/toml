@@ -5,6 +5,9 @@ hero:
   name: toml-php
   text: PHP Parser for TOML
   tagline: A PHP TOML parser and encoder with AST access and collected parse errors
+  image:
+    src: /logo.svg
+    alt: toml-php
   actions:
     - theme: brand
       text: Get Started
