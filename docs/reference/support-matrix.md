@@ -118,16 +118,18 @@ Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0:
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
 | Valid | 213 | 1 | 99.5% |
-| Invalid | 421 | 45 | 90.3% |
+| Invalid | 459 | 7 | 98.5% |
 
 ### TOML 1.0
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
 | Valid | 204 | 1 | 99.5% |
-| Invalid | 421 | 52 | 89.0% |
+| Invalid | 459 | 14 | 97.0% |
 
-The single valid test failure is due to a PHP limitation with null byte property names. Invalid test failures are mostly TOML 1.0 strict tests that TOML 1.1 relaxes (multiline inline tables, trailing commas, hex escapes).
+The single valid test failure is due to a PHP limitation with null byte property names.
+
+The remaining invalid test failures are edge cases around comment control characters and specific datetime validation patterns.
 
 ## Recommended Use
 

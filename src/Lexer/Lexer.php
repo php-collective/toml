@@ -28,6 +28,14 @@ final class Lexer
      */
     public function tokenize(): Generator
     {
+        // Validate UTF-8 encoding upfront
+        if (!mb_check_encoding($this->input, 'UTF-8')) {
+            yield new Token(TokenType::Invalid, 'Invalid UTF-8 encoding', null, new Span(0, $this->length, 1, 0));
+            yield new Token(TokenType::Eof, '', null, new Span($this->length, $this->length, 1, 0));
+
+            return;
+        }
+
         while ($this->pos < $this->length) {
             $char = $this->input[$this->pos];
 
@@ -182,10 +190,15 @@ final class Lexer
                     continue;
                 }
                 $parsed .= $escaped;
-            } elseif ($char === "\n") {
+            } elseif ($char === "\n" || $char === "\r") {
                 // Unescaped newline not allowed in basic string
                 return new Token(TokenType::Invalid, substr($this->input, $start, $this->pos - $start), null, new Span($start, $this->pos, $this->line, $col));
             } else {
+                // Check for control characters (except tab which is allowed)
+                $ord = ord($char);
+                if (($ord < 0x20 && $ord !== 0x09) || $ord === 0x7F) {
+                    $valid = false;
+                }
                 $parsed .= $char;
                 $this->advance();
             }
@@ -340,9 +353,12 @@ final class Lexer
                 if ($this->pos < $this->length && $this->input[$this->pos] === "\n") {
                     $parsed .= "\n";
                     $this->pos++;
+                    $this->line++;
+                    $this->column = 0;
+                } else {
+                    // Bare CR without LF is invalid
+                    $valid = false;
                 }
-                $this->line++;
-                $this->column = 0;
             } else {
                 // Check for control characters (except tab which is allowed)
                 $ord = ord($char);
@@ -375,6 +391,7 @@ final class Lexer
         $this->advance(); // skip opening '
 
         $parsed = '';
+        $valid = true;
         while ($this->pos < $this->length) {
             $char = $this->input[$this->pos];
 
@@ -382,11 +399,21 @@ final class Lexer
                 $this->advance();
                 $value = substr($this->input, $start, $this->pos - $start);
 
+                if (!$valid) {
+                    return new Token(TokenType::Invalid, $value, null, new Span($start, $this->pos, $startLine, $col));
+                }
+
                 return new Token(TokenType::LiteralString, $value, $parsed, new Span($start, $this->pos, $startLine, $col));
             }
 
-            if ($char === "\n") {
+            if ($char === "\n" || $char === "\r") {
                 return new Token(TokenType::Invalid, substr($this->input, $start, $this->pos - $start), null, new Span($start, $this->pos, $startLine, $col));
+            }
+
+            // Check for control characters (except tab which is allowed)
+            $ord = ord($char);
+            if (($ord < 0x20 && $ord !== 0x09) || $ord === 0x7F) {
+                $valid = false;
             }
 
             $parsed .= $char;
@@ -466,9 +493,12 @@ final class Lexer
                 if ($this->pos < $this->length && $this->input[$this->pos] === "\n") {
                     $parsed .= "\n";
                     $this->pos++;
+                    $this->line++;
+                    $this->column = 0;
+                } else {
+                    // Bare CR without LF is invalid
+                    $valid = false;
                 }
-                $this->line++;
-                $this->column = 0;
             } else {
                 // Check for control characters (except tab which is allowed)
                 $ord = ord($char);
@@ -707,7 +737,13 @@ final class Lexer
     {
         if (!$this->isValidNumberLiteral($value)) {
             // TOML 1.1: if it's not a valid number but is a valid bare key, return as BareKey
-            if (preg_match('/^[A-Za-z0-9_-]+$/', $value)) {
+            // But only if it doesn't look like an attempted number literal
+            // (signed values or values with 0x/0o/0b prefixes should be Invalid, not BareKey)
+            if (
+                preg_match('/^[A-Za-z0-9_-]+$/', $value) &&
+                !preg_match('/^[+-]/', $value) &&
+                !preg_match('/^0[xXoObB]/', $value)
+            ) {
                 return new Token(TokenType::BareKey, $value, $value, $span);
             }
 
@@ -716,43 +752,27 @@ final class Lexer
 
         $clean = str_replace('_', '', $value);
 
-        // Hex
-        if (
-            str_starts_with($clean, '0x') || str_starts_with($clean, '0X') ||
-            str_starts_with($clean, '+0x') || str_starts_with($clean, '-0x')
-        ) {
+        // Hex (lowercase 0x only, no sign)
+        if (str_starts_with($clean, '0x')) {
             $parsed = intval($clean, 16);
 
             return new Token(TokenType::Integer, $value, $parsed, $span);
         }
 
-        // Octal
-        if (
-            str_starts_with($clean, '0o') || str_starts_with($clean, '0O') ||
-            str_starts_with($clean, '+0o') || str_starts_with($clean, '-0o')
-        ) {
-            $negative = str_starts_with($clean, '-');
-            $oct = str_replace(['0o', '0O', '+', '-'], '', $clean);
+        // Octal (lowercase 0o only, no sign)
+        if (str_starts_with($clean, '0o')) {
+            $oct = substr($clean, 2);
             $parsed = intval($oct, 8);
-            if ($negative) {
-                $parsed = -$parsed;
-            }
 
             return new Token(TokenType::Integer, $value, $parsed, $span);
         }
 
-        // Binary
-        if (
-            str_starts_with($clean, '0b') || str_starts_with($clean, '0B') ||
-            str_starts_with($clean, '+0b') || str_starts_with($clean, '-0b')
-        ) {
-            $bin = str_replace(['0b', '0B', '+', '-'], '', $clean);
-            $parsed = bindec($bin);
-            if (str_starts_with($clean, '-')) {
-                $parsed = -$parsed;
-            }
+        // Binary (lowercase 0b only, no sign)
+        if (str_starts_with($clean, '0b')) {
+            $bin = substr($clean, 2);
+            $parsed = (int)bindec($bin);
 
-            return new Token(TokenType::Integer, $value, (int)$parsed, $span);
+            return new Token(TokenType::Integer, $value, $parsed, $span);
         }
 
         // Float (has . or e/E)
@@ -771,20 +791,20 @@ final class Lexer
 
     private function isValidNumberLiteral(string $value): bool
     {
-        // Integer: decimal
+        // Integer: decimal (only decimal can have +/- sign)
         if (preg_match('/^[+-]?(?:0|[1-9](?:_?\d)*)$/', $value) === 1) {
             return true;
         }
-        // Integer: hexadecimal
-        if (preg_match('/^[+-]?0[xX][0-9A-Fa-f](?:_?[0-9A-Fa-f])*$/', $value) === 1) {
+        // Integer: hexadecimal (lowercase 'x' only, no sign allowed)
+        if (preg_match('/^0x[0-9A-Fa-f](?:_?[0-9A-Fa-f])*$/', $value) === 1) {
             return true;
         }
-        // Integer: octal
-        if (preg_match('/^[+-]?0[oO][0-7](?:_?[0-7])*$/', $value) === 1) {
+        // Integer: octal (lowercase 'o' only, no sign allowed)
+        if (preg_match('/^0o[0-7](?:_?[0-7])*$/', $value) === 1) {
             return true;
         }
-        // Integer: binary
-        if (preg_match('/^[+-]?0[bB][01](?:_?[01])*$/', $value) === 1) {
+        // Integer: binary (lowercase 'b' only, no sign allowed)
+        if (preg_match('/^0b[01](?:_?[01])*$/', $value) === 1) {
             return true;
         }
         // Float with decimal point (requires digit after decimal)
