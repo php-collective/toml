@@ -92,6 +92,9 @@ final class Parser
             if ($token->is(TokenType::LeftBracket)) {
                 $table = $this->parseTableHeader();
                 if ($table !== null) {
+                    // TOML requires table headers to be on a line by themselves
+                    $this->checkTableHeaderTerminator();
+
                     if ($this->preserveTrivia) {
                         $table->setLeadingTrivia($leadingTrivia);
                         $table->setTrailingTrivia($this->collectTrailingTrivia());
@@ -651,6 +654,39 @@ final class Parser
         while ($this->check(TokenType::Whitespace)) {
             $this->advance();
         }
+    }
+
+    /**
+     * Check that a table header is properly terminated.
+     * TOML requires table headers to be on a line by themselves.
+     */
+    private function checkTableHeaderTerminator(): void
+    {
+        $token = $this->current();
+
+        // Direct valid terminators
+        if ($token->is(TokenType::Newline, TokenType::Eof, TokenType::Comment)) {
+            return;
+        }
+
+        // If whitespace, peek ahead to check what follows
+        if ($token->is(TokenType::Whitespace)) {
+            $peekPos = $this->pos + 1;
+            $tokenCount = count($this->tokens);
+            while ($peekPos < $tokenCount && $this->tokens[$peekPos]->is(TokenType::Whitespace)) {
+                $peekPos++;
+            }
+            if ($peekPos < $tokenCount) {
+                $nextToken = $this->tokens[$peekPos];
+                if ($nextToken->is(TokenType::Newline, TokenType::Eof, TokenType::Comment)) {
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+
+        $this->error('Expected newline or comment after table header', $token->span);
     }
 
     /**
