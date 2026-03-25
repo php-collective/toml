@@ -49,10 +49,15 @@ final class Encoder
 
     public function encodeDocument(Document $doc): string
     {
-        if ($this->options->documentFormatting === DocumentFormattingMode::Normalized || !$this->documentHasTrivia($doc)) {
-            $normalizer = new Normalizer();
+        $normalizer = new Normalizer();
+        $normalized = $normalizer->normalize($doc);
+        $errors = $normalizer->getErrors();
+        if ($errors !== []) {
+            throw new EncodeException($errors[0]->message);
+        }
 
-            return $this->encode($normalizer->normalize($doc));
+        if ($this->options->documentFormatting === DocumentFormattingMode::Normalized || !$this->documentHasTrivia($doc)) {
+            return $this->encode($normalized);
         }
 
         return $this->encodeAstItems($doc->items);

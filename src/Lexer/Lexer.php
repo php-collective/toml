@@ -329,6 +329,12 @@ final class Lexer
                 }
 
                 if ($tempPos < $this->length && ($this->input[$tempPos] === "\n" || $this->input[$tempPos] === "\r")) {
+                    if ($this->input[$tempPos] === "\r" && ($tempPos + 1 >= $this->length || $this->input[$tempPos + 1] !== "\n")) {
+                        $valid = false;
+                        $this->pos = $tempPos + 1;
+
+                        continue;
+                    }
                     // Line continuation: skip to next non-whitespace
                     $this->pos = $tempPos;
                     $this->skipWhitespaceAndNewlines();
