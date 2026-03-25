@@ -118,18 +118,18 @@ Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0:
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
 | Valid | 213 | 1 | 99.5% |
-| Invalid | 451 | 15 | 96.8% |
+| Invalid | 459 | 7 | 98.5% |
 
 ### TOML 1.0
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
 | Valid | 204 | 1 | 99.5% |
-| Invalid | 451 | 22 | 95.3% |
+| Invalid | 459 | 14 | 97.0% |
 
 The single valid test failure is due to a PHP limitation with null byte property names.
 
-The remaining invalid test failures are complex table semantics edge cases involving conflicts between dotted keys and explicitly defined tables. These are rare patterns in practice.
+The remaining invalid test failures are edge cases around comment control characters and specific datetime validation patterns.
 
 ## Recommended Use
 
