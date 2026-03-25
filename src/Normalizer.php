@@ -48,6 +48,13 @@ final class Normalizer
     private array $sealedInlineTables = [];
 
     /**
+     * Keys that are static arrays (defined via = [...]) whose elements cannot be extended.
+     *
+     * @var array<string, \PhpCollective\Toml\Lexer\Span>
+     */
+    private array $staticArrays = [];
+
+    /**
      * @return array<string, mixed>
      */
     public function normalize(Document $doc): array
@@ -58,6 +65,7 @@ final class Normalizer
         $this->activeDisplayPath = [];
         $this->activeInternalPath = [];
         $this->sealedInlineTables = [];
+        $this->staticArrays = [];
         $result = [];
 
         foreach ($doc->items as $item) {
@@ -66,6 +74,9 @@ final class Normalizer
                 $this->setDocumentValue($result, $item->key->parts, $normalized['value'], $item->getSpan());
                 if ($normalized['isInlineTable']) {
                     $this->sealedInlineTables[$this->pathId($item->key->parts)] = $item->getSpan();
+                }
+                if ($normalized['isStaticArray']) {
+                    $this->staticArrays[$this->pathId($item->key->parts)] = $item->getSpan();
                 }
             } elseif ($item instanceof Table) {
                 $this->processTable($result, $item);
@@ -115,6 +126,10 @@ final class Normalizer
                 $fullPath = [...$this->activeInternalPath, ...$kv->key->parts];
                 $this->sealedInlineTables[$this->pathId($fullPath)] = $kv->getSpan();
             }
+            if ($normalized['isStaticArray']) {
+                $fullPath = [...$this->activeInternalPath, ...$kv->key->parts];
+                $this->staticArrays[$this->pathId($fullPath)] = $kv->getSpan();
+            }
         }
     }
 
@@ -149,7 +164,7 @@ final class Normalizer
     }
 
     /**
-     * @return array{value: mixed, isInlineTable: bool}
+     * @return array{value: mixed, isInlineTable: bool, isStaticArray: bool}
      */
     private function normalizeValue(Value $value): array
     {
@@ -157,6 +172,7 @@ final class Normalizer
             return [
                 'value' => array_map(fn (Value $item) => $this->normalizeValue($item)['value'], $value->items),
                 'isInlineTable' => false,
+                'isStaticArray' => true,
             ];
         }
 
@@ -164,6 +180,8 @@ final class Normalizer
             $result = [];
             $inlineDefinedTables = [];
             $inlineDefinedKeys = [];
+            $inlineSealedTables = [];
+            $inlineStaticArrays = [];
 
             foreach ($value->items as $kv) {
                 $normalized = $this->normalizeValue($kv->value);
@@ -176,14 +194,22 @@ final class Normalizer
                     $inlineDefinedKeys,
                     $kv->key->parts,
                     $kv->key->parts,
-                    true, // Inline tables have their own scope, don't check global sealed tables
+                    $inlineSealedTables,
+                    $inlineStaticArrays,
                 );
+                // Track sealed inline tables within this scope
+                if ($normalized['isInlineTable']) {
+                    $inlineSealedTables[$this->pathId($kv->key->parts)] = $kv->getSpan();
+                }
+                if ($normalized['isStaticArray']) {
+                    $inlineStaticArrays[$this->pathId($kv->key->parts)] = $kv->getSpan();
+                }
             }
 
-            return ['value' => $result, 'isInlineTable' => true];
+            return ['value' => $result, 'isInlineTable' => true, 'isStaticArray' => false];
         }
 
-        return ['value' => $value->getValue(), 'isInlineTable' => false];
+        return ['value' => $value->getValue(), 'isInlineTable' => false, 'isStaticArray' => false];
     }
 
     /**
@@ -202,6 +228,22 @@ final class Normalizer
         $leafKey = array_pop($path);
         if ($leafKey === null) {
             return $null;
+        }
+
+        // Check if any path component is a sealed inline table
+        $checkPath = [];
+        foreach ([...$path, $leafKey] as $key) {
+            $checkPath[] = $key;
+            $checkPathId = $this->pathId($checkPath);
+            if (isset($this->sealedInlineTables[$checkPathId])) {
+                $displayPath = implode('.', $checkPath);
+                $this->errors[] = new ParseError(
+                    "Cannot extend inline table '{$displayPath}'",
+                    $span,
+                );
+
+                return $null;
+            }
         }
 
         foreach ($path as $key) {
@@ -225,6 +267,16 @@ final class Normalizer
 
             $internalPrefix[] = $key;
             if ($current[$key] !== [] && array_is_list($current[$key])) {
+                // Check if this is a static array - cannot extend elements of static arrays
+                $internalPathId = $this->pathId($internalPrefix);
+                if (isset($this->staticArrays[$internalPathId])) {
+                    $this->errors[] = new ParseError(
+                        "Cannot extend values in static array '{$displayPath}'",
+                        $span,
+                    );
+
+                    return $null;
+                }
                 $lastEntry = array_key_last($current[$key]);
                 $internalPrefix[] = '#' . (string)$lastEntry;
                 $current = &$current[$key][$lastEntry];
@@ -304,6 +356,22 @@ final class Normalizer
             return $null;
         }
 
+        // Check if any path component is a sealed inline table
+        $checkPath = [];
+        foreach ([...$path, $leafKey] as $key) {
+            $checkPath[] = $key;
+            $checkPathId = $this->pathId($checkPath);
+            if (isset($this->sealedInlineTables[$checkPathId])) {
+                $displayPath = implode('.', $checkPath);
+                $this->errors[] = new ParseError(
+                    "Cannot extend inline table '{$displayPath}'",
+                    $span,
+                );
+
+                return $null;
+            }
+        }
+
         foreach ($path as $key) {
             $displayPrefix[] = $key;
             $displayPath = implode('.', $displayPrefix);
@@ -325,6 +393,16 @@ final class Normalizer
 
             $internalPrefix[] = $key;
             if ($current[$key] !== [] && array_is_list($current[$key])) {
+                // Check if this is a static array - cannot extend elements of static arrays
+                $internalPathId = $this->pathId($internalPrefix);
+                if (isset($this->staticArrays[$internalPathId])) {
+                    $this->errors[] = new ParseError(
+                        "Cannot extend values in static array '{$displayPath}'",
+                        $span,
+                    );
+
+                    return $null;
+                }
                 $lastEntry = array_key_last($current[$key]);
                 $internalPrefix[] = '#' . (string)$lastEntry;
                 $current = &$current[$key][$lastEntry];
@@ -378,7 +456,8 @@ final class Normalizer
      * @param array<string, \PhpCollective\Toml\Lexer\Span> $definedKeys
      * @param array<string> $displayFullPath
      * @param array<string> $internalFullPath
-     * @param bool $isInlineTableScope When true, skip global sealed table check (inline tables have their own scope)
+     * @param array<string, \PhpCollective\Toml\Lexer\Span>|null $scopeSealedTables Sealed tables for inline scope (null = use global)
+     * @param array<string, \PhpCollective\Toml\Lexer\Span>|null $scopeStaticArrays Static arrays for inline scope (null = use global)
      */
     private function setNestedValue(
         array &$array,
@@ -389,26 +468,37 @@ final class Normalizer
         array &$definedKeys,
         array $displayFullPath,
         array $internalFullPath,
-        bool $isInlineTableScope = false,
+        ?array $scopeSealedTables = null,
+        ?array $scopeStaticArrays = null,
     ): void {
         $current = &$array;
         $displayPrefix = array_slice($displayFullPath, 0, count($displayFullPath) - count($path));
         $internalPrefix = array_slice($internalFullPath, 0, count($internalFullPath) - count($path));
         $lastIndex = count($path) - 1;
 
-        // Check if we're extending a sealed inline table
-        // For path ['point', 'y'], if 'point' is sealed, reject it
-        // Skip this check inside inline tables - they have their own independent scope
-        if (!$isInlineTableScope) {
-            $checkPath = $displayPrefix;
-            foreach ($path as $i => $key) {
-                $checkPath[] = $key;
-                $checkPathStr = implode('.', $checkPath);
-                $checkPathId = $this->pathId($checkPath);
-                // If this intermediate path is sealed AND there's more path to traverse, reject
-                if ($i < $lastIndex && isset($this->sealedInlineTables[$checkPathId])) {
+        // Determine which sealed tables and static arrays to check
+        $sealedTables = $scopeSealedTables ?? $this->sealedInlineTables;
+        $staticArrays = $scopeStaticArrays ?? $this->staticArrays;
+
+        // Check if we're extending a sealed inline table or static array
+        $checkPath = $displayPrefix;
+        foreach ($path as $i => $key) {
+            $checkPath[] = $key;
+            $checkPathStr = implode('.', $checkPath);
+            $checkPathId = $this->pathId($checkPath);
+            // If this intermediate path is sealed AND there's more path to traverse, reject
+            if ($i < $lastIndex) {
+                if (isset($sealedTables[$checkPathId])) {
                     $this->errors[] = new ParseError(
                         "Cannot extend inline table '{$checkPathStr}' with dotted keys",
+                        $span,
+                    );
+
+                    return;
+                }
+                if (isset($staticArrays[$checkPathId])) {
+                    $this->errors[] = new ParseError(
+                        "Cannot extend static array '{$checkPathStr}' with dotted keys",
                         $span,
                     );
 
@@ -456,8 +546,8 @@ final class Normalizer
             }
 
             // Check if this intermediate path was explicitly defined as a table or array table
-            // If so, we cannot extend it with dotted keys
-            if (!$isInlineTableScope && isset($this->definedTables[$internalPath])) {
+            // If so, we cannot extend it with dotted keys (only for global scope)
+            if ($scopeSealedTables === null && isset($this->definedTables[$internalPath])) {
                 $kind = $this->definedTables[$internalPath]['kind'];
                 if ($kind === 'explicit' || $kind === 'array') {
                     $this->errors[] = new ParseError(

@@ -227,7 +227,7 @@ TOML);
     public function testDecodeRejectsReopeningInlineTableAsRegularTable(): void
     {
         $this->expectException(ParseException::class);
-        $this->expectExceptionMessage("Cannot redefine key 'a' as a table");
+        $this->expectExceptionMessage("Cannot extend inline table 'a'");
 
         Toml::decode("a = { b = 1 }\n[a]\nc = 2\n");
     }
@@ -278,6 +278,33 @@ TOML);
                 'key' => 'value',
             ],
         ], $result);
+    }
+
+    public function testDecodeRejectsExtendingStaticArrayElements(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage("Cannot extend values in static array 'a'");
+
+        // Static arrays (defined via = [...]) cannot have their elements extended
+        Toml::decode("a = [{ b = 1 }]\n[a.c]\nfoo = 1\n");
+    }
+
+    public function testDecodeRejectsExtendingInlineTableWithinInlineTable(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage("Cannot extend inline table 'inner' with dotted keys");
+
+        // Within an inline table, nested inline tables are immutable
+        Toml::decode("tab = { inner = { dog = \"best\" }, inner.cat = \"worst\" }\n");
+    }
+
+    public function testDecodeRejectsExtendingStaticArrayWithinInlineTable(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage("Cannot extend static array 'inner.table' with dotted keys");
+
+        // Within an inline table, static arrays are immutable
+        Toml::decode("tab = { inner.table = [{}], inner.table.val = \"bad\" }\n");
     }
 
     public function testEncodeSupportsExplicitLocalTemporalValues(): void

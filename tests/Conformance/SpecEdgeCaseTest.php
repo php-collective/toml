@@ -54,6 +54,6 @@ y = 2
 TOML);
 
         $this->assertFalse($result->isValid());
-        $this->assertSame("Cannot redefine key 'point' as a table", $result->getErrors()[0]->message);
+        $this->assertSame("Cannot extend inline table 'point'", $result->getErrors()[0]->message);
     }
 }
