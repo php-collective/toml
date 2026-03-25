@@ -1,6 +1,6 @@
-# Contributing to toml-php
+# Contributing
 
-Thank you for your interest in contributing to toml-php!
+Thank you for your interest in contributing to PHP Toml!
 
 ## Getting Started
 
@@ -136,7 +136,7 @@ npm install
 npm run dev
 ```
 
-This starts a dev server at `http://localhost:5173/toml-php/` with hot reload.
+This starts a dev server at `http://localhost:5173/toml/` with hot reload.
 
 ### Building
 

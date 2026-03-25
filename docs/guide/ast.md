@@ -1,6 +1,6 @@
 # AST Access
 
-toml-php provides full access to the Abstract Syntax Tree (AST) for advanced use cases like analysis, transformation, or editor integrations.
+PHP Toml provides full access to the Abstract Syntax Tree (AST) for advanced use cases like analysis, transformation, or editor integrations.
 
 ## Parsing to AST
 
@@ -234,12 +234,15 @@ use PhpCollective\Toml\Lexer\Span;
 // Modify a value
 $document->items[0]->value = new StringValue('new value', StringStyle::Basic, new Span(0, 0, 1, 1));
 
-// Re-encode
-$toml = Toml::encodeDocument($document);
+// Re-encode with source-aware formatting
+$toml = Toml::encodeDocument(
+    $document,
+    new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
+);
 ```
 
 ::: warning
-Currently, re-encoding normalizes the output. Original formatting (whitespace, comments) is not preserved.
+`encodeDocument()` normalizes by default. Use `DocumentFormattingMode::SourceAware` when you want preserved formatting for unchanged parsed regions and local fallback rules for edited ones.
 :::
 
 ## Use Cases

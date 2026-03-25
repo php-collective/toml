@@ -7,10 +7,13 @@ namespace PhpCollective\Toml\Test\Integration;
 use PhpCollective\Toml\Ast\Key;
 use PhpCollective\Toml\Ast\KeyStyle;
 use PhpCollective\Toml\Ast\KeyValue;
+use PhpCollective\Toml\Ast\Table;
 use PhpCollective\Toml\Ast\Value\ArrayValue;
 use PhpCollective\Toml\Ast\Value\InlineTable;
 use PhpCollective\Toml\Ast\Value\IntegerBase;
 use PhpCollective\Toml\Ast\Value\IntegerValue;
+use PhpCollective\Toml\Ast\Value\StringStyle;
+use PhpCollective\Toml\Ast\Value\StringValue;
 use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Lexer\Span;
@@ -195,6 +198,114 @@ TOML, true);
 items = [
   { point = { x = 1, z = 9 } },
 ]
+TOML, $encoded);
+    }
+
+    public function testEncodeDocumentPreservesHeaderSpacingForTableKeyEdit(): void
+    {
+        $doc = Toml::parse(<<<'TOML'
+[ server . "old.key" ]
+value = 1
+TOML, true);
+
+        $table = $doc->items[0];
+        $this->assertInstanceOf(Table::class, $table);
+
+        $table->key->parts[1] = 'new.key';
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame(<<<'TOML'
+[ server . "new.key" ]
+value = 1
+TOML, $encoded);
+    }
+
+    public function testEncodeDocumentPreservesDottedKeySeparatorSpacingForKeyEdit(): void
+    {
+        $doc = Toml::parse("server . \"old\"   = 1\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+
+        $item->key->parts[1] = 'new';
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame("server . \"new\" = 1\n", $encoded);
+    }
+
+    public function testEncodeDocumentPreservesAssignmentSpacingForMultilineStringEdit(): void
+    {
+        $doc = Toml::parse("message   =   \"old\"\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+
+        $item->value = new StringValue("line1\nline2", StringStyle::MultiLineBasic, $this->span());
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame(<<<'TOML'
+message   =   """
+line1
+line2"""
+TOML . "\n", $encoded);
+    }
+
+    public function testEncodeDocumentPreservesArrayTableHeaderSpacingForKeyEdit(): void
+    {
+        $doc = Toml::parse(<<<'TOML'
+[[ products . "old.name" ]]
+value = 1
+TOML, true);
+
+        $table = $doc->items[0];
+        $this->assertInstanceOf(Table::class, $table);
+
+        $table->key->parts[1] = 'new.name';
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame(<<<'TOML'
+[[ products . "new.name" ]]
+value = 1
+TOML, $encoded);
+    }
+
+    public function testEncodeDocumentPreservesDottedKeySpacingInsideInlineTableEdit(): void
+    {
+        $doc = Toml::parse("point = { nested . \"old\" = 1, plain = 2 }\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+        $this->assertInstanceOf(InlineTable::class, $item->value);
+
+        $item->value->items[0]->key->parts[1] = 'new';
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame("point = { nested . \"new\" = 1, plain = 2 }\n", $encoded);
+    }
+
+    public function testEncodeDocumentPreservesDottedKeySpacingInsideArrayTableEntryEdit(): void
+    {
+        $doc = Toml::parse(<<<'TOML'
+[[ products ]]
+name . "old" = 1
+TOML, true);
+
+        $table = $doc->items[0];
+        $this->assertInstanceOf(Table::class, $table);
+        $this->assertCount(1, $table->items);
+
+        $table->items[0]->key->parts[1] = 'new';
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame(<<<'TOML'
+[[ products ]]
+name . "new" = 1
 TOML, $encoded);
     }
 

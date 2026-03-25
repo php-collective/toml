@@ -1,6 +1,6 @@
 # Compatibility
 
-This page documents the current compatibility expectations for `toml-php`.
+This page documents the current compatibility expectations for `PHP Toml`.
 
 ## Public API Stability
 
@@ -30,6 +30,7 @@ For `Toml::parse($input, true)` followed by `Toml::encodeDocument($document, new
 - unchanged parsed nodes keep preserved trivia where the AST represents it
 - comments and blank lines can survive re-encoding
 - key and string lexical style can survive re-encoding
+- table-header spacing and dotted-key separator spacing can survive compatible key edits
 - arrays and inline tables can preserve collection-local layout
 - edited nodes without trivia fall back to canonical local formatting
 - fallback decisions are local to the edited collection, so outer preserved layout can survive while nested edited collections normalize

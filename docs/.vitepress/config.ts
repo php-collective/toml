@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  title: 'toml-php',
+  title: 'PHP Toml',
   description: 'A PHP parser and encoder for TOML 1.0/1.1',
 
   base: '/toml/',

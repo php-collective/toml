@@ -156,7 +156,15 @@ final class Parser
 
         $span = $start->merge($end);
 
-        return new Table($key, $isArrayTable, $span, $this->slice($span));
+        return new Table(
+            $key,
+            $isArrayTable,
+            $span,
+            $this->slice($span),
+            null,
+            $this->sliceRange($span->start, $key->getSpan()->start),
+            $this->sliceRange($key->getSpan()->end, $span->end),
+        );
     }
 
     private function parseKeyValue(): ?KeyValue
@@ -198,11 +206,20 @@ final class Parser
     {
         $parts = [];
         $styles = [];
-        $start = $this->current()->span;
+        $start = null;
+        $rawSeparators = [];
+        $lastPartEnd = 0;
+        $separatorStart = null;
 
         do {
             $this->skipWhitespace();
             $token = $this->current();
+            $start ??= $token->span;
+
+            if ($separatorStart !== null) {
+                $rawSeparators[] = $this->sliceRange($separatorStart, $token->span->start);
+                $separatorStart = null;
+            }
 
             if ($token->is(TokenType::BareKey)) {
                 $parts[] = $token->parsed;
@@ -222,14 +239,20 @@ final class Parser
                 return null;
             }
 
+            $lastPartEnd = $token->span->end;
             $this->skipWhitespace();
-        } while ($this->match(TokenType::Dot));
+            if ($this->match(TokenType::Dot)) {
+                $separatorStart = $lastPartEnd;
 
-        $end = $this->previous()->span;
+                continue;
+            }
 
-        $span = $start->merge($end);
+            break;
+        } while (true);
 
-        return new Key($parts, $styles, $span, $this->slice($span));
+        $span = new Span($start->start, $lastPartEnd, $start->line, $start->column);
+
+        return new Key($parts, $styles, $span, $this->slice($span), null, null, $rawSeparators);
     }
 
     private function parseValue(): ?Value
@@ -619,6 +642,11 @@ final class Parser
     private function slice(Span $span): string
     {
         return substr($this->input, $span->start, $span->length());
+    }
+
+    private function sliceRange(int $start, int $end): string
+    {
+        return substr($this->input, $start, $end - $start);
     }
 
     private function slicePrefixTo(Span $container, Span $end): string

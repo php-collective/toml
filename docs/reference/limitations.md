@@ -1,6 +1,6 @@
 # Limitations
 
-Known limitations of toml-php.
+Known limitations of PHP Toml.
 
 ## Integer Range
 
@@ -44,30 +44,43 @@ Example:
 
 ```php
 $document = Toml::parse($input, true);
-$toml = Toml::encodeDocument($document);
+$toml = Toml::encodeDocument(
+    $document,
+    new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
+);
 ```
 
 Plain `encode()` still emits normalized TOML and does not preserve source comments.
 
 ## Formatting Preservation
 
-Original formatting is only partially preserved during AST re-encoding:
+Formatting is preserved with the following behavior during AST re-encoding:
 
-- Leading and trailing trivia on document items and table entries can be preserved
-- Key quoting style can be preserved
-- String style can be preserved
-- Table ordering can be preserved
-- Collection-local layout for parsed arrays and inline tables can now be preserved
-- Unedited documents can still lose formatting in unsupported cases such as delimiter-adjacent trivia that is not represented in the AST
+**Unchanged regions** preserve their original formatting:
+- Leading and trailing trivia (comments, whitespace)
+- Key quoting style
+- String style (basic, literal, multiline)
+- Table ordering
+- Collection layout
+
+**Edited regions** use formatter-style canonical formatting:
+- Multiline arrays preserve their indentation style
+- Single-line arrays canonicalize to `[1, 2, 3]`
+- Inline tables canonicalize to `{ key = value, key2 = value2 }`
 
 ```toml
-# Original
-"my-key" = { x = 1, y = 2 }
-```
+# Original multiline array
+values = [
+  1,
+  2,
+]
 
-```toml
-# After re-encode (usually preserved for parsed inline tables)
-"my-key" = { x = 1, y = 2 }
+# After adding item 3 - multiline format preserved
+values = [
+  1,
+  2,
+  3,
+]
 ```
 
 ## Local DateTime Types
@@ -153,7 +166,6 @@ key = "very deep"
 
 The largest remaining improvement areas are:
 
-- Full formatter-style editing for changed regions, not just lossless preservation of unchanged parsed regions
 - Optional GMP-backed handling for very large integers
 - Streaming or incremental parsing for very large files
 - Broader conformance-style fixture coverage at larger scale, especially for edited-document workflows

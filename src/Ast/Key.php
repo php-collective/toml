@@ -15,6 +15,7 @@ final class Key extends AbstractNode
      * @param string $raw
      * @param array<string>|null $originalParts
      * @param array<\PhpCollective\Toml\Ast\KeyStyle>|null $originalStyles
+     * @param array<string> $rawSeparators
      */
     public function __construct(
         public array $parts,
@@ -23,6 +24,7 @@ final class Key extends AbstractNode
         public string $raw = '',
         public ?array $originalParts = null,
         public ?array $originalStyles = null,
+        public array $rawSeparators = [],
     ) {
         parent::__construct($span);
         $this->originalParts ??= $parts;

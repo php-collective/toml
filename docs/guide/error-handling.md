@@ -1,6 +1,6 @@
 # Error Handling
 
-toml-php provides two error handling modes: throwing exceptions (default) and collecting errors (for tooling).
+PHP Toml provides two error handling modes: throwing exceptions (default) and collecting errors (for tooling).
 
 ## Throwing Mode (Default)
 

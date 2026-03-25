@@ -178,9 +178,7 @@ final class Encoder
         if ($item instanceof Table) {
             $header = $this->isReusableTableHeader($item)
                 ? $item->rawHeader
-                : ($item->isArrayTable
-                    ? '[[' . $this->encodeAstKey($item->key) . ']]'
-                    : '[' . $this->encodeAstKey($item->key) . ']');
+                : $this->encodeAstTableHeader($item);
             $output .= $header;
             $output .= $this->encodeTrivia($item->getTrailingTrivia());
 
@@ -215,8 +213,28 @@ final class Encoder
         return $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value);
     }
 
+    private function encodeAstTableHeader(Table $table): string
+    {
+        // Use raw prefix/suffix if available and table type unchanged
+        if (
+            $table->originalIsArrayTable === $table->isArrayTable
+            && $table->rawHeaderPrefix !== ''
+            && $table->rawHeaderSuffix !== ''
+        ) {
+            return $table->rawHeaderPrefix . $this->encodeAstKey($table->key) . $table->rawHeaderSuffix;
+        }
+
+        return $table->isArrayTable
+            ? '[[' . $this->encodeAstKey($table->key) . ']]'
+            : '[' . $this->encodeAstKey($table->key) . ']';
+    }
+
     private function encodeAstKey(Key $key): string
     {
+        if ($this->isOriginalKey($key) && $key->raw !== '') {
+            return $key->raw;
+        }
+
         $parts = [];
 
         foreach ($key->parts as $index => $part) {
@@ -226,6 +244,16 @@ final class Encoder
                 KeyStyle::Basic => $this->encodeString($part),
                 KeyStyle::Literal => "'" . $part . "'",
             };
+        }
+
+        if (count($key->rawSeparators) === count($parts) - 1) {
+            $output = $parts[0] ?? '';
+
+            foreach ($key->rawSeparators as $index => $separator) {
+                $output .= $separator . $parts[$index + 1];
+            }
+
+            return $output;
         }
 
         return implode('.', $parts);
@@ -286,16 +314,26 @@ final class Encoder
             return $value->raw;
         }
 
+        $multiline = $this->isMultilineArray($value);
+        $indent = $multiline ? $this->inferArrayIndentation($value) : null;
+
+        // For shape changes on inline arrays, use simple formatting
         if (
-            !$this->isMultilineArray($value)
+            !$multiline
             && ($this->arrayHasSyntheticItems($value) || $this->collectionShapeChanged($value->originalItemCount, count($value->items)))
         ) {
             return '[' . implode(', ', array_map(fn (Value $item) => $this->encodeAstValue($item), $value->items)) . ']';
         }
 
+        // For shape changes on multiline arrays, preserve multiline style with inferred indent
+        if (
+            $multiline
+            && ($this->arrayHasSyntheticItems($value) || $this->collectionShapeChanged($value->originalItemCount, count($value->items)))
+        ) {
+            return $this->formatMultilineArray($value, $indent ?? '  ');
+        }
+
         $output = '[';
-        $multiline = $this->isMultilineArray($value);
-        $indent = $multiline ? $this->inferArrayIndentation($value) : null;
 
         if ($value->items === []) {
             return $output . $this->encodeTrivia($value->openingTrivia) . ']';
@@ -326,17 +364,60 @@ final class Encoder
         return $output . ']';
     }
 
+    /**
+     * Format a multiline array with consistent indentation for new/changed items.
+     */
+    private function formatMultilineArray(ArrayValue $value, string $indent): string
+    {
+        $output = '[';
+        $newline = $this->options->newline;
+
+        if ($value->items === []) {
+            return $output . $newline . ']';
+        }
+
+        foreach ($value->items as $index => $item) {
+            $leadingTrivia = $item->getLeadingTrivia();
+
+            // Use existing trivia if available, otherwise use formatter-style indent
+            if ($leadingTrivia !== [] && !$this->isSyntheticNode($item)) {
+                $output .= $this->encodeTrivia($leadingTrivia);
+            } else {
+                $output .= $newline . $indent;
+            }
+
+            $output .= $this->encodeAstValue($item);
+
+            $trailingTrivia = $item->getTrailingTrivia();
+            if ($trailingTrivia !== [] && !$this->isSyntheticNode($item)) {
+                $output .= $this->encodeTrivia($trailingTrivia);
+            }
+
+            // Always add comma for consistency in multiline arrays
+            if ($index < count($value->items) - 1 || $value->hasTrailingComma) {
+                $output .= ',';
+            }
+        }
+
+        // Add closing bracket on new line if original had closing trivia with newline
+        if ($value->closingTrivia !== [] && $this->triviaContainsNewline($value->closingTrivia)) {
+            $output .= $this->encodeTrivia($value->closingTrivia);
+        } else {
+            $output .= $newline;
+        }
+
+        return $output . ']';
+    }
+
     private function encodeAstInlineTable(InlineTable $value): string
     {
         if ($this->isReusableInlineTable($value)) {
             return $value->raw;
         }
 
+        // For shape changes, use formatter-style with inferred spacing
         if ($this->inlineTableHasSyntheticItems($value) || $this->collectionShapeChanged($value->originalItemCount, count($value->items))) {
-            return '{ ' . implode(', ', array_map(
-                fn (KeyValue $item) => $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value),
-                $value->items,
-            )) . ' }';
+            return $this->formatInlineTable($value);
         }
 
         $output = '{';
@@ -372,6 +453,23 @@ final class Encoder
         $output .= $this->encodeTrivia($value->closingTrivia);
 
         return $output . '}';
+    }
+
+    /**
+     * Format an inline table with canonical spacing for changed items.
+     * Uses consistent `{ key = value, key2 = value2 }` formatting.
+     */
+    private function formatInlineTable(InlineTable $value): string
+    {
+        if ($value->items === []) {
+            return '{}';
+        }
+
+        // Use canonical formatting: { key = value, key2 = value2 }
+        return '{ ' . implode(', ', array_map(
+            fn (KeyValue $item) => $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value),
+            $value->items,
+        )) . ' }';
     }
 
     private function encodeMultilineBasicString(string $value): string

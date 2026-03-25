@@ -19,6 +19,8 @@ final class Table extends AbstractNode
         Span $span,
         public string $rawHeader = '',
         public ?bool $originalIsArrayTable = null,
+        public string $rawHeaderPrefix = '',
+        public string $rawHeaderSuffix = '',
     ) {
         parent::__construct($span);
         $this->originalIsArrayTable ??= $isArrayTable;

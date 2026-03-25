@@ -1,6 +1,6 @@
 # Cookbook
 
-Common patterns and recipes for working with toml-php.
+Common patterns and recipes for working with PHP Toml.
 
 ## Configuration Files
 
@@ -190,6 +190,8 @@ function listAllKeys(Document $doc, string $prefix = ''): array
 ### Editing While Preserving Layout
 
 ```php
+use PhpCollective\Toml\Encoder\DocumentFormattingMode;
+use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Ast\Key;
 use PhpCollective\Toml\Ast\KeyStyle;
 use PhpCollective\Toml\Ast\KeyValue;
@@ -206,7 +208,10 @@ $inlineTable->items[] = new KeyValue(
     new Span(0, 0, 1, 1),
 );
 
-echo Toml::encodeDocument($document);
+echo Toml::encodeDocument(
+    $document,
+    new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
+);
 // point = { x = 1, y = 2 }
 ```
 

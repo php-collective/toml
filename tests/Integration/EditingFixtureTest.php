@@ -8,10 +8,13 @@ use PhpCollective\Toml\Ast\Document;
 use PhpCollective\Toml\Ast\Key;
 use PhpCollective\Toml\Ast\KeyStyle;
 use PhpCollective\Toml\Ast\KeyValue;
+use PhpCollective\Toml\Ast\Table;
 use PhpCollective\Toml\Ast\Value\ArrayValue;
 use PhpCollective\Toml\Ast\Value\InlineTable;
 use PhpCollective\Toml\Ast\Value\IntegerBase;
 use PhpCollective\Toml\Ast\Value\IntegerValue;
+use PhpCollective\Toml\Ast\Value\StringStyle;
+use PhpCollective\Toml\Ast\Value\StringValue;
 use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Lexer\Span;
@@ -33,6 +36,10 @@ final class EditingFixtureTest extends TestCase
             'single-line-inline-insert' => $this->applySingleLineInlineInsert($document),
             'single-line-value-replace' => $this->applySingleLineValueReplace($document),
             'single-line-inline-value-replace' => $this->applySingleLineInlineValueReplace($document),
+            'multiline-string-replace' => $this->applyMultilineStringReplace($document),
+            'array-table-header-edit' => $this->applyArrayTableHeaderEdit($document),
+            'inline-table-dotted-key-edit' => $this->applyInlineTableDottedKeyEdit($document),
+            'array-table-dotted-key-edit' => $this->applyArrayTableDottedKeyEdit($document),
             'nested-multiline-array-remove' => $this->applyNestedMultilineArrayRemoval($document),
             'nested-inline-replace' => $this->applyNestedInlineReplacement($document),
             default => $this->fail('Unknown editing fixture: ' . basename($caseDir)),
@@ -114,6 +121,40 @@ final class EditingFixtureTest extends TestCase
         self::assertInstanceOf(IntegerValue::class, $item->value->items[0]->value);
 
         $item->value->items[0]->value = new IntegerValue(9, IntegerBase::Decimal, $this->span());
+    }
+
+    private function applyMultilineStringReplace(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+
+        $item->value = new StringValue("line1\nline2", StringStyle::MultiLineBasic, $this->span());
+    }
+
+    private function applyArrayTableHeaderEdit(Document $document): void
+    {
+        $table = $document->items[0];
+        self::assertInstanceOf(Table::class, $table);
+
+        $table->key->parts[1] = 'new.name';
+    }
+
+    private function applyInlineTableDottedKeyEdit(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+        self::assertInstanceOf(InlineTable::class, $item->value);
+
+        $item->value->items[0]->key->parts[1] = 'new';
+    }
+
+    private function applyArrayTableDottedKeyEdit(Document $document): void
+    {
+        $table = $document->items[0];
+        self::assertInstanceOf(Table::class, $table);
+        self::assertCount(1, $table->items);
+
+        $table->items[0]->key->parts[1] = 'new';
     }
 
     private function applyNestedInlineReplacement(Document $document): void

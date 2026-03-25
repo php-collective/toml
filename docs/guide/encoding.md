@@ -1,6 +1,6 @@
 # Encoding
 
-toml-php encodes PHP arrays to TOML and supports explicit value wrappers for TOML local date/time/datetime literals.
+PHP Toml encodes PHP arrays to TOML and supports explicit value wrappers for TOML local date/time/datetime literals.
 
 ## Basic Encoding
 

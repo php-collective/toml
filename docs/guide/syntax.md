@@ -1,6 +1,6 @@
 # TOML Syntax Reference
 
-A complete reference for TOML syntax supported by toml-php.
+A complete reference for TOML syntax supported by PHP Toml.
 
 ## Comments
 

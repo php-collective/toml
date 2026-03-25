@@ -1,5 +1,5 @@
 {
-  "name": "toml-php-docs",
+  "name": "toml-docs",
   "type": "module",
   "private": true,
   "scripts": {

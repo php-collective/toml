@@ -1,6 +1,6 @@
 # Architecture
 
-toml-php follows a clean pipeline architecture separating concerns into distinct phases.
+PHP Toml follows a clean pipeline architecture separating concerns into distinct phases.
 
 ## Overview
 
@@ -170,7 +170,10 @@ Toml::encode($array)
 ```php
 $doc = Toml::parse($input, true);      // string → Document
 // Modify $doc...
-$toml = Toml::encodeDocument($doc); // Document → string
+$toml = Toml::encodeDocument(
+    $doc,
+    new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
+); // Document → string
 ```
 
 ## Extension Points

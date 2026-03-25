@@ -1,6 +1,6 @@
 # Getting Started
 
-toml-php is a PHP parser and encoder for [TOML](https://toml.io/), a minimal configuration file format that's easy to read and write.
+PHP Toml is a parser and encoder for [TOML](https://toml.io/), a minimal configuration file format that's easy to read and write.
 
 ## Installation
 
