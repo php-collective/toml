@@ -54,20 +54,9 @@ Plain `encode()` still emits normalized TOML and does not preserve source commen
 
 ## Formatting Preservation
 
-Formatting is preserved with the following behavior during AST re-encoding:
+Formatting preservation is strongest when re-encoding a trivia-preserving AST in `DocumentFormattingMode::SourceAware`.
 
-**Unchanged regions** preserve their original formatting:
-- Leading and trailing trivia (comments, whitespace)
-- Key quoting style
-- String style (basic, literal, multiline)
-- Table ordering
-- Collection layout
-
-**Edited regions** use source-aware local fallback rules:
-- Multiline arrays preserve their indentation style
-- Compatible key and value edits can preserve original separator spacing
-- Single-line arrays and inline tables preserve local delimiter style when the parsed collection exposes a consistent style
-- When no consistent local style is available, single-line arrays and inline tables fall back to canonical formatting
+Unchanged parsed regions can round-trip losslessly. Edited regions keep local formatting where the AST carries consistent evidence and otherwise fall back to canonical local formatting.
 
 ```toml
 # Original multiline array
@@ -83,6 +72,8 @@ values = [
   3,
 ]
 ```
+
+For the exact source-aware editing contract, see [Compatibility](https://php-collective.github.io/toml/reference/compatibility).
 
 ## Local DateTime Types
 

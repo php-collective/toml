@@ -176,6 +176,7 @@ final class Normalizer
                     $inlineDefinedKeys,
                     $kv->key->parts,
                     $kv->key->parts,
+                    true, // Inline tables have their own scope, don't check global sealed tables
                 );
             }
 
@@ -245,12 +246,20 @@ final class Normalizer
 
         if (isset($this->definedTables[$internalPathString])) {
             $kind = $this->definedTables[$internalPathString]['kind'];
-            $message = $kind === 'array'
-                ? "Cannot redefine array table '{$displayPath}' as a regular table"
-                : "Duplicate table '{$displayPath}'";
-            $this->errors[] = new ParseError($message, $span);
+            if ($kind === 'array') {
+                $this->errors[] = new ParseError(
+                    "Cannot redefine array table '{$displayPath}' as a regular table",
+                    $span,
+                );
 
-            return $null;
+                return $null;
+            }
+            if ($kind === 'explicit') {
+                $this->errors[] = new ParseError("Duplicate table '{$displayPath}'", $span);
+
+                return $null;
+            }
+            // kind === 'implicit' is OK - we're explicitly defining a previously implicit table
         }
 
         if (!array_key_exists($leafKey, $current)) {
@@ -361,6 +370,7 @@ final class Normalizer
      * @param array<string, \PhpCollective\Toml\Lexer\Span> $definedKeys
      * @param array<string> $displayFullPath
      * @param array<string> $internalFullPath
+     * @param bool $isInlineTableScope When true, skip global sealed table check (inline tables have their own scope)
      */
     private function setNestedValue(
         array &$array,
@@ -371,6 +381,7 @@ final class Normalizer
         array &$definedKeys,
         array $displayFullPath,
         array $internalFullPath,
+        bool $isInlineTableScope = false,
     ): void {
         $current = &$array;
         $displayPrefix = array_slice($displayFullPath, 0, count($displayFullPath) - count($path));
@@ -379,19 +390,22 @@ final class Normalizer
 
         // Check if we're extending a sealed inline table
         // For path ['point', 'y'], if 'point' is sealed, reject it
-        $checkPath = $displayPrefix;
-        foreach ($path as $i => $key) {
-            $checkPath[] = $key;
-            $checkPathStr = implode('.', $checkPath);
-            $checkPathId = $this->pathId($checkPath);
-            // If this intermediate path is sealed AND there's more path to traverse, reject
-            if ($i < $lastIndex && isset($this->sealedInlineTables[$checkPathId])) {
-                $this->errors[] = new ParseError(
-                    "Cannot extend inline table '{$checkPathStr}' with dotted keys",
-                    $span,
-                );
+        // Skip this check inside inline tables - they have their own independent scope
+        if (!$isInlineTableScope) {
+            $checkPath = $displayPrefix;
+            foreach ($path as $i => $key) {
+                $checkPath[] = $key;
+                $checkPathStr = implode('.', $checkPath);
+                $checkPathId = $this->pathId($checkPath);
+                // If this intermediate path is sealed AND there's more path to traverse, reject
+                if ($i < $lastIndex && isset($this->sealedInlineTables[$checkPathId])) {
+                    $this->errors[] = new ParseError(
+                        "Cannot extend inline table '{$checkPathStr}' with dotted keys",
+                        $span,
+                    );
 
-                return;
+                    return;
+                }
             }
         }
 

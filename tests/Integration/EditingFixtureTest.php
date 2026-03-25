@@ -68,7 +68,7 @@ final class EditingFixtureTest extends TestCase
      */
     public static function fixtureProvider(): iterable
     {
-        $paths = glob(__DIR__ . '/../Fixtures/Editing/*');
+        $paths = glob(__DIR__ . '/../fixtures/Editing/*');
         if ($paths === false) {
             return;
         }

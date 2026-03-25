@@ -106,7 +106,20 @@ final class Lexer
         $col = $this->column;
         $this->advance(); // skip #
 
-        while ($this->pos < $this->length && $this->input[$this->pos] !== "\n") {
+        while ($this->pos < $this->length && $this->input[$this->pos] !== "\n" && $this->input[$this->pos] !== "\r") {
+            $char = $this->input[$this->pos];
+            // Check for control characters (except tab which is allowed)
+            $ord = ord($char);
+            if (($ord < 0x20 && $ord !== 0x09) || $ord === 0x7F) {
+                // Control character found - mark as invalid
+                $this->advance();
+                while ($this->pos < $this->length && $this->input[$this->pos] !== "\n") {
+                    $this->advance();
+                }
+                $value = substr($this->input, $start, $this->pos - $start);
+
+                return new Token(TokenType::Invalid, $value, null, new Span($start, $this->pos, $this->line, $col));
+            }
             $this->advance();
         }
 
@@ -331,6 +344,11 @@ final class Lexer
                 $this->line++;
                 $this->column = 0;
             } else {
+                // Check for control characters (except tab which is allowed)
+                $ord = ord($char);
+                if (($ord < 0x20 && $ord !== 0x09) || $ord === 0x7F) {
+                    $valid = false;
+                }
                 $parsed .= $char;
                 $this->advance();
             }
@@ -403,6 +421,7 @@ final class Lexer
         }
 
         $parsed = '';
+        $valid = true;
         while ($this->pos < $this->length) {
             if (
                 $this->pos + 2 < $this->length &&
@@ -429,6 +448,10 @@ final class Lexer
                 }
                 $value = substr($this->input, $start, $this->pos - $start);
 
+                if (!$valid) {
+                    return new Token(TokenType::Invalid, $value, null, new Span($start, $this->pos, $startLine, $col));
+                }
+
                 return new Token(TokenType::MultiLineLiteralString, $value, $parsed, new Span($start, $this->pos, $startLine, $col));
             }
 
@@ -447,6 +470,11 @@ final class Lexer
                 $this->line++;
                 $this->column = 0;
             } else {
+                // Check for control characters (except tab which is allowed)
+                $ord = ord($char);
+                if (($ord < 0x20 && $ord !== 0x09) || $ord === 0x7F) {
+                    $valid = false;
+                }
                 $parsed .= $char;
                 $this->advance();
             }
@@ -569,6 +597,17 @@ final class Lexer
 
         // Read the rest of the number
         while ($this->pos < $this->length && $this->isNumberChar($this->input[$this->pos])) {
+            $char = $this->input[$this->pos];
+            // Stop at '.' if we have a leading-zero decimal number (e.g., 01.23)
+            // This allows dotted keys like `01.23` to be tokenized as separate parts
+            if ($char === '.') {
+                $soFar = substr($this->input, $start, $this->pos - $start);
+                $cleanSoFar = ltrim($soFar, '+-');
+                // If it's 0 followed by more digits (not 0 alone, not 0x/0o/0b), stop here
+                if (preg_match('/^0\d+$/', $cleanSoFar)) {
+                    break;
+                }
+            }
             $this->advance();
         }
 
@@ -591,6 +630,20 @@ final class Lexer
         while ($this->pos < $this->length && $this->isDateTimeChar($this->input[$this->pos])) {
             // Stop at space if followed by non-digit (not a datetime with space separator)
             if ($this->input[$this->pos] === ' ') {
+                if ($this->pos + 1 >= $this->length || !ctype_digit($this->input[$this->pos + 1])) {
+                    break;
+                }
+            }
+            // Stop at dot unless it's fractional seconds (follows time part with digits)
+            if ($this->input[$this->pos] === '.') {
+                // In valid datetime, '.' is only for fractional seconds, after HH:MM:SS
+                // Check if we're in a time context by looking for ':' before
+                $soFar = substr($this->input, $start, $this->pos - $start);
+                if (!preg_match('/:\d{2}$/', $soFar)) {
+                    // Not after :SS, so this is not fractional seconds - stop here
+                    break;
+                }
+                // Check if followed by digits (fractional seconds)
                 if ($this->pos + 1 >= $this->length || !ctype_digit($this->input[$this->pos + 1])) {
                     break;
                 }

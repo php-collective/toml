@@ -119,4 +119,44 @@ TOML;
 
         $this->assertSame($input, $encoded);
     }
+
+    public function testEncodeDocumentPreservesTabWhitespace(): void
+    {
+        $input = "\tkey\t=\t\"value\"\n[\tserver\t]\n\tport\t=\t80";
+
+        $doc = Toml::parse($input, true);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame($input, $encoded);
+    }
+
+    public function testEncodeDocumentPreservesTabIndentedMultilineArray(): void
+    {
+        $input = "values = [\n\t1,\n\t2,\n]";
+
+        $doc = Toml::parse($input, true);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame($input, $encoded);
+    }
+
+    public function testEncodeDocumentPreservesTabIndentedMultilineInlineTable(): void
+    {
+        $input = "point = {\n\tx = 1,\n\ty = 2,\n}";
+
+        $doc = Toml::parse($input, true);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame($input, $encoded);
+    }
+
+    public function testEncodeDocumentPreservesMixedTabSpaceWhitespace(): void
+    {
+        $input = " \tkey \t = \t \"value\"";
+
+        $doc = Toml::parse($input, true);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame($input, $encoded);
+    }
 }

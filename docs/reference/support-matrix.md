@@ -111,14 +111,23 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 
 ## toml-test Compliance
 
-Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0 with TOML 1.1:
+Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0:
+
+### TOML 1.1
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
-| Valid | 189 | 25 | 88% |
-| Invalid | 415 | 51 | 89% |
+| Valid | 213 | 1 | 99.5% |
+| Invalid | 421 | 45 | 90.3% |
 
-Most failures are edge cases around implicit table scenarios and control character validation.
+### TOML 1.0
+
+| Test Type | Passed | Failed | Compliance |
+|-----------|--------|--------|------------|
+| Valid | 204 | 1 | 99.5% |
+| Invalid | 421 | 52 | 89.0% |
+
+The single valid test failure is due to a PHP limitation with null byte property names. Invalid test failures are mostly TOML 1.0 strict tests that TOML 1.1 relaxes (multiline inline tables, trailing commas, hex escapes).
 
 ## Recommended Use
 

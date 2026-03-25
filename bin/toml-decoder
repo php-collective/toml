@@ -84,10 +84,17 @@ function convertValue(Value $value): mixed
         if (is_infinite($v)) {
             return ['type' => 'float', 'value' => $v > 0 ? 'inf' : '-inf'];
         }
-        $str = (string)$v;
-        // Ensure float representation has decimal
-        if (strpos($str, '.') === false && strpos($str, 'E') === false && strpos($str, 'e') === false) {
-            $str .= '.0';
+        // Use raw value to preserve precision
+        $raw = $value->raw ?? '';
+        if ($raw !== '' && $raw !== 'nan' && $raw !== 'inf' && $raw !== '+inf' && $raw !== '-inf') {
+            // Remove underscores from raw value
+            $str = str_replace('_', '', $raw);
+        } else {
+            $str = (string)$v;
+            // Ensure float representation has decimal
+            if (strpos($str, '.') === false && strpos($str, 'E') === false && strpos($str, 'e') === false) {
+                $str .= '.0';
+            }
         }
         return ['type' => 'float', 'value' => $str];
     }
@@ -97,11 +104,20 @@ function convertValue(Value $value): mixed
     }
 
     if ($value instanceof OffsetDateTime) {
-        return ['type' => 'datetime', 'value' => $value->value->format('Y-m-d\TH:i:s.u') . formatOffset($value->value)];
+        // Format without microseconds unless they were present in input
+        $raw = $value->raw ?? '';
+        $hasMicros = str_contains($raw, '.');
+        $format = $hasMicros ? 'Y-m-d\TH:i:s.u' : 'Y-m-d\TH:i:s';
+        return ['type' => 'datetime', 'value' => $value->value->format($format) . formatOffset($value->value)];
     }
 
     if ($value instanceof LocalDateTime) {
-        return ['type' => 'datetime-local', 'value' => $value->value];
+        // Normalize no-seconds datetime to include :00
+        $v = $value->value;
+        if (preg_match('/^(\d{4}-\d{2}-\d{2}[Tt ])(\d{2}:\d{2})$/', $v, $m)) {
+            $v = $m[1] . $m[2] . ':00';
+        }
+        return ['type' => 'datetime-local', 'value' => $v];
     }
 
     if ($value instanceof LocalDate) {
@@ -109,7 +125,12 @@ function convertValue(Value $value): mixed
     }
 
     if ($value instanceof LocalTime) {
-        return ['type' => 'time-local', 'value' => $value->value];
+        // Normalize no-seconds time to include :00
+        $v = $value->value;
+        if (preg_match('/^\d{2}:\d{2}$/', $v)) {
+            $v .= ':00';
+        }
+        return ['type' => 'time-local', 'value' => $v];
     }
 
     if ($value instanceof ArrayValue) {
@@ -136,27 +157,46 @@ function formatOffset(DateTimeInterface $dt): string
     return $offset;
 }
 
-function setNestedValue(stdClass $obj, array $path, mixed $value): void
+function setNestedValue(stdClass|array &$obj, array $path, mixed $value): void
 {
-    $current = $obj;
+    $current = &$obj;
     $lastIndex = count($path) - 1;
 
     for ($i = 0; $i < $lastIndex; $i++) {
         $key = $path[$i];
+        // Handle array tables: if current value is a PHP array, navigate to the last element
+        if (is_array($current)) {
+            $lastArrayIdx = array_key_last($current);
+            $current = &$current[$lastArrayIdx];
+        }
         if (!isset($current->$key)) {
             $current->$key = new stdClass();
         }
-        $current = $current->$key;
+        $current = &$current->$key;
+    }
+
+    // Handle array tables at the leaf level too
+    if (is_array($current)) {
+        $lastArrayIdx = array_key_last($current);
+        $current = &$current[$lastArrayIdx];
     }
 
     $current->{$path[$lastIndex]} = $value;
 }
 
-function getNestedValue(stdClass $obj, array $path): mixed
+function getNestedValue(stdClass|array $obj, array $path): mixed
 {
     $current = $obj;
 
     foreach ($path as $key) {
+        // Handle array tables: if current value is a PHP array, navigate to the last element
+        if (is_array($current)) {
+            $lastArrayIdx = array_key_last($current);
+            if ($lastArrayIdx === null) {
+                return null;
+            }
+            $current = $current[$lastArrayIdx];
+        }
         if (!isset($current->$key)) {
             return null;
         }

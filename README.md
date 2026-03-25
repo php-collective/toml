@@ -109,7 +109,7 @@ $toml = Toml::encodeDocument(
 );
 ```
 
-`DocumentFormattingMode::SourceAware` is lossless for unchanged parsed regions and uses local fallback rules for edited ones.
+`DocumentFormattingMode::SourceAware` is lossless for unchanged parsed regions and uses local fallback rules for edited ones. See the [Compatibility](https://php-collective.github.io/toml/reference/compatibility) page for the exact editing contract.
 `skipNulls` lets `encode()` omit nulls instead of throwing.
 
 ## Error Handling

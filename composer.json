@@ -43,7 +43,8 @@
         "test": "phpunit",
         "stan": "phpstan analyze",
         "cs-check": "phpcs --colors --parallel=16",
-        "cs-fix": "phpcbf --colors --parallel=16"
+        "cs-fix": "phpcbf --colors --parallel=16",
+        "bench:compare": "php benchmarks/compare-libraries.php"
     },
     "config": {
         "sort-packages": true,
