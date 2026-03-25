@@ -30,6 +30,10 @@ A [TOML](https://toml.io/) (v1.0 and v1.1) parser and encoder for PHP with AST a
 composer require php-collective/toml
 ```
 
+## Demo
+
+- [Interactive Playground](https://sandbox.dereuromark.de/sandbox/toml) - Full-featured sandbox with all options.
+
 ## Quick Start
 
 ```php
