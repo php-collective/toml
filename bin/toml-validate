@@ -1,0 +1,207 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * TOML Validator CLI
+ *
+ * Validates TOML file syntax with optional JSON Schema validation.
+ *
+ * Exit codes:
+ *   0 = Valid TOML
+ *   1 = Invalid TOML (syntax errors)
+ *   2 = Schema validation failed
+ *   3 = File not found / read error
+ */
+
+$autoloadPaths = [
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../../autoload.php',
+];
+
+$autoloaded = false;
+foreach ($autoloadPaths as $path) {
+    if (file_exists($path)) {
+        require $path;
+        $autoloaded = true;
+
+        break;
+    }
+}
+
+if (!$autoloaded) {
+    fwrite(STDERR, "Error: Could not find autoloader. Run 'composer install'.\n");
+    exit(3);
+}
+
+use JsonSchema\Validator;
+use PhpCollective\Toml\Toml;
+
+function printUsage(): void
+{
+    $usage = <<<'USAGE'
+TOML Validator - Validate TOML file syntax
+
+Usage:
+  toml-validate <file.toml> [options]
+  cat file.toml | toml-validate [options]
+
+Options:
+  --schema=<file>   Validate against JSON Schema file
+  --quiet, -q       Suppress output on success
+  --help, -h        Show this help message
+
+Exit codes:
+  0  Valid TOML
+  1  Invalid TOML (syntax errors)
+  2  Schema validation failed
+  3  File not found or read error
+
+Examples:
+  toml-validate config.toml
+  toml-validate config.toml --schema=schema.json
+  toml-validate config.toml -q && echo "Valid!"
+
+USAGE;
+    echo $usage;
+}
+
+/**
+ * @param array<string> $argv
+ * @return array{file: string|null, schema: string|null, quiet: bool, help: bool}
+ */
+function parseArgs(array $argv): array
+{
+    $options = [
+        'file' => null,
+        'schema' => null,
+        'quiet' => false,
+        'help' => false,
+    ];
+
+    array_shift($argv);
+
+    foreach ($argv as $arg) {
+        if ($arg === '--help' || $arg === '-h') {
+            $options['help'] = true;
+        } elseif ($arg === '--quiet' || $arg === '-q') {
+            $options['quiet'] = true;
+        } elseif (str_starts_with($arg, '--schema=')) {
+            $options['schema'] = substr($arg, 9);
+        } elseif (!str_starts_with($arg, '-') && $options['file'] === null) {
+            $options['file'] = $arg;
+        }
+    }
+
+    return $options;
+}
+
+/**
+ * @param array<string, mixed> $data
+ * @param string $schemaFile
+ * @return array<string>
+ */
+function validateSchema(array $data, string $schemaFile): array
+{
+    if (!file_exists($schemaFile)) {
+        return ["Schema file not found: {$schemaFile}"];
+    }
+
+    $schemaContent = file_get_contents($schemaFile);
+    if ($schemaContent === false) {
+        return ["Could not read schema file: {$schemaFile}"];
+    }
+
+    $schema = json_decode($schemaContent);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return ['Invalid JSON in schema file: ' . json_last_error_msg()];
+    }
+
+    if (!class_exists(Validator::class)) {
+        return ['Schema validation requires justinrainbow/json-schema package. Install it with: composer require justinrainbow/json-schema'];
+    }
+
+    $validator = new Validator();
+    $dataObject = json_decode((string)json_encode($data));
+    $validator->validate($dataObject, $schema);
+
+    if ($validator->isValid()) {
+        return [];
+    }
+
+    $errors = [];
+    foreach ($validator->getErrors() as $error) {
+        $path = $error['property'] ? "[{$error['property']}] " : '';
+        $errors[] = $path . $error['message'];
+    }
+
+    return $errors;
+}
+
+$options = parseArgs($argv);
+
+if ($options['help']) {
+    printUsage();
+    exit(0);
+}
+
+$content = null;
+$source = 'stdin';
+
+if ($options['file'] !== null) {
+    $source = $options['file'];
+    if (!file_exists($options['file'])) {
+        fwrite(STDERR, "Error: File not found: {$options['file']}\n");
+        exit(3);
+    }
+    $content = file_get_contents($options['file']);
+    if ($content === false) {
+        fwrite(STDERR, "Error: Could not read file: {$options['file']}\n");
+        exit(3);
+    }
+} else {
+    if (stream_isatty(STDIN)) {
+        fwrite(STDERR, "Error: No input file specified and stdin is empty.\n");
+        fwrite(STDERR, "Use --help for usage information.\n");
+        exit(3);
+    }
+    $content = stream_get_contents(STDIN);
+    if ($content === false) {
+        fwrite(STDERR, "Error: Could not read from stdin.\n");
+        exit(3);
+    }
+}
+
+$result = Toml::tryParse($content);
+
+if (!$result->isValid()) {
+    fwrite(STDERR, "Syntax errors in {$source}:\n\n");
+    foreach ($result->getErrors() as $error) {
+        fwrite(STDERR, $error->format($content) . "\n");
+    }
+    exit(1);
+}
+
+if ($options['schema'] !== null) {
+    $data = $result->getValue();
+    if ($data === null) {
+        fwrite(STDERR, "Error: Could not extract data for schema validation.\n");
+        exit(1);
+    }
+    $schemaErrors = validateSchema($data, $options['schema']);
+
+    if ($schemaErrors !== []) {
+        fwrite(STDERR, "Schema validation errors in {$source}:\n\n");
+        foreach ($schemaErrors as $error) {
+            fwrite(STDERR, "  - {$error}\n");
+        }
+        exit(2);
+    }
+}
+
+if (!$options['quiet']) {
+    echo "{$source}: Valid TOML\n";
+}
+
+exit(0);
