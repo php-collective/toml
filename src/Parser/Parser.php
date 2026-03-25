@@ -308,11 +308,14 @@ final class Parser
         $token = $this->advance();
         $base = IntegerBase::Decimal;
 
-        if (str_starts_with($token->value, '0x') || str_starts_with($token->value, '0X')) {
+        // Strip optional sign before checking base prefix
+        $value = ltrim($token->value, '+-');
+
+        if (str_starts_with($value, '0x') || str_starts_with($value, '0X')) {
             $base = IntegerBase::Hexadecimal;
-        } elseif (str_starts_with($token->value, '0o') || str_starts_with($token->value, '0O')) {
+        } elseif (str_starts_with($value, '0o') || str_starts_with($value, '0O')) {
             $base = IntegerBase::Octal;
-        } elseif (str_starts_with($token->value, '0b') || str_starts_with($token->value, '0B')) {
+        } elseif (str_starts_with($value, '0b') || str_starts_with($value, '0B')) {
             $base = IntegerBase::Binary;
         }
 

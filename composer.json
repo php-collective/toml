@@ -8,7 +8,8 @@
         "parser",
         "encoder",
         "configuration",
-        "config"
+        "config",
+        "developer-tools"
     ],
     "authors": [
         {

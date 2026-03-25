@@ -156,6 +156,31 @@ here'''";
         $this->assertSame("no\\\\escape\nhere", $tokens[0]->parsed);
     }
 
+    public function testMultiLineStringWithTrailingQuotes(): void
+    {
+        // TOML allows up to 2 quotes before the closing delimiter
+        // 5 quotes = 2 content quotes + 3 closing quotes
+        $lexer = new Lexer('"""test"""""');
+        $tokens = iterator_to_array($lexer->tokenize());
+
+        $this->assertSame(TokenType::MultiLineBasicString, $tokens[0]->type);
+        $this->assertSame('test""', $tokens[0]->parsed);
+
+        // Same for literal strings
+        $lexer = new Lexer("'''test'''''");
+        $tokens = iterator_to_array($lexer->tokenize());
+
+        $this->assertSame(TokenType::MultiLineLiteralString, $tokens[0]->type);
+        $this->assertSame("test''", $tokens[0]->parsed);
+
+        // 4 quotes = 1 content quote + 3 closing quotes
+        $lexer = new Lexer('"""test""""');
+        $tokens = iterator_to_array($lexer->tokenize());
+
+        $this->assertSame(TokenType::MultiLineBasicString, $tokens[0]->type);
+        $this->assertSame('test"', $tokens[0]->parsed);
+    }
+
     public function testOffsetDateTime(): void
     {
         $lexer = new Lexer('1979-05-27T07:32:00Z');

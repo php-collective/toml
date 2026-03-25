@@ -72,6 +72,24 @@ A comparison of PHP TOML libraries as of March 2025.
   - TomlBuilder fluent API
   - PSR-2 compliant
 
+## Competitive Position
+
+| Capability | php-collective | vs Others |
+|------------|---------------|-----------|
+| TOML 1.1 support | ✅ Full | Only PetalBranch matches |
+| PHP 8.2 compatible | ✅ | PetalBranch requires 8.3+ |
+| Error recovery | ✅ Multiple errors | Most fail on first error |
+| AST access | ✅ Full spans | internal/toml, PetalBranch only |
+| Trivia preservation | ✅ Comments + whitespace | Rare in PHP ecosystem |
+| Source-aware encoding | ✅ Preserves formatting | Unique feature |
+| Zero dependencies | ✅ Pure PHP | Common |
+| toml-test compliance | 76% valid / 89% invalid | PetalBranch claims higher |
+
+**Unique strengths:**
+- Only library with error recovery for IDE/tooling workflows
+- Source-aware encoding preserves original formatting in unchanged regions
+- Balanced PHP version support (8.2+) with modern TOML 1.1 features
+
 ## Choosing a Library
 
 **Choose php-collective/toml when you need:**

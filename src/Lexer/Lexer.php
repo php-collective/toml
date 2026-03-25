@@ -263,9 +263,24 @@ final class Lexer
                 $this->input[$this->pos + 1] === '"' &&
                 $this->input[$this->pos + 2] === '"'
             ) {
-                $this->advance();
-                $this->advance();
-                $this->advance();
+                // TOML allows up to 2 quotes at the end before closing """
+                // So """"" = "" content + """ close, """""" = "" content + """ close + " after
+                $quoteCount = 3;
+                while (
+                    $quoteCount < 5 &&
+                    $this->pos + $quoteCount < $this->length &&
+                    $this->input[$this->pos + $quoteCount] === '"'
+                ) {
+                    $quoteCount++;
+                }
+
+                // Extra quotes (1-2) become part of content
+                $extraQuotes = $quoteCount - 3;
+                $parsed .= str_repeat('"', $extraQuotes);
+
+                for ($i = 0; $i < $quoteCount; $i++) {
+                    $this->advance();
+                }
                 $value = substr($this->input, $start, $this->pos - $start);
 
                 if (!$valid) {
@@ -386,9 +401,23 @@ final class Lexer
                 $this->input[$this->pos + 1] === "'" &&
                 $this->input[$this->pos + 2] === "'"
             ) {
-                $this->advance();
-                $this->advance();
-                $this->advance();
+                // TOML allows up to 2 quotes at the end before closing '''
+                $quoteCount = 3;
+                while (
+                    $quoteCount < 5 &&
+                    $this->pos + $quoteCount < $this->length &&
+                    $this->input[$this->pos + $quoteCount] === "'"
+                ) {
+                    $quoteCount++;
+                }
+
+                // Extra quotes (1-2) become part of content
+                $extraQuotes = $quoteCount - 3;
+                $parsed .= str_repeat("'", $extraQuotes);
+
+                for ($i = 0; $i < $quoteCount; $i++) {
+                    $this->advance();
+                }
                 $value = substr($this->input, $start, $this->pos - $start);
 
                 return new Token(TokenType::MultiLineLiteralString, $value, $parsed, new Span($start, $this->pos, $startLine, $col));

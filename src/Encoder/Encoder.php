@@ -704,7 +704,16 @@ final class Encoder
 
     private function isReusableFloat(FloatValue $value): bool
     {
-        return $value->raw !== '' && $value->originalValue === $value->value;
+        if ($value->raw === '') {
+            return false;
+        }
+
+        // NaN is not equal to itself, so handle it specially
+        if (is_nan($value->value)) {
+            return $value->originalValue !== null && is_nan($value->originalValue);
+        }
+
+        return $value->originalValue === $value->value;
     }
 
     private function isReusableBool(BoolValue $value): bool
