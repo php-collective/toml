@@ -70,13 +70,40 @@ final class LexerTest extends TestCase
         $this->assertSame(0b1010, $tokens[4]->parsed);
     }
 
-    public function testNegativeOctalAndBinary(): void
+    public function testSignedNonDecimalIntegersAreInvalid(): void
     {
-        $lexer = new Lexer('-0o777 -0b1010');
+        // TOML spec: only decimal integers can have +/- prefix
+        $lexer = new Lexer('-0o777');
         $tokens = iterator_to_array($lexer->tokenize());
+        $this->assertSame(TokenType::Invalid, $tokens[0]->type);
 
-        $this->assertSame(-0o777, $tokens[0]->parsed);
-        $this->assertSame(-0b1010, $tokens[2]->parsed);
+        $lexer = new Lexer('+0o777');
+        $tokens = iterator_to_array($lexer->tokenize());
+        $this->assertSame(TokenType::Invalid, $tokens[0]->type);
+
+        $lexer = new Lexer('-0b1010');
+        $tokens = iterator_to_array($lexer->tokenize());
+        $this->assertSame(TokenType::Invalid, $tokens[0]->type);
+
+        $lexer = new Lexer('+0x1f');
+        $tokens = iterator_to_array($lexer->tokenize());
+        $this->assertSame(TokenType::Invalid, $tokens[0]->type);
+    }
+
+    public function testCapitalPrefixesAreInvalid(): void
+    {
+        // TOML spec: only lowercase 0x, 0o, 0b allowed
+        $lexer = new Lexer('0X1F');
+        $tokens = iterator_to_array($lexer->tokenize());
+        $this->assertSame(TokenType::Invalid, $tokens[0]->type);
+
+        $lexer = new Lexer('0O777');
+        $tokens = iterator_to_array($lexer->tokenize());
+        $this->assertSame(TokenType::Invalid, $tokens[0]->type);
+
+        $lexer = new Lexer('0B1010');
+        $tokens = iterator_to_array($lexer->tokenize());
+        $this->assertSame(TokenType::Invalid, $tokens[0]->type);
     }
 
     public function testFloat(): void
