@@ -115,10 +115,10 @@ final class Parser
             } elseif ($token->is(TokenType::Newline)) {
                 $this->advance();
             } elseif ($token->is(TokenType::Invalid)) {
-                $this->error("Invalid token: {$token->value}", $token->span);
+                $this->error("Invalid token: `{$token->value}`", $token->span);
                 $this->synchronize();
             } else {
-                $this->error("Unexpected token: {$token->type->value}", $token->span);
+                $this->error("Unexpected token: `{$token->type->value}`", $token->span);
                 $this->synchronize();
             }
         }
@@ -188,7 +188,7 @@ final class Parser
         if ($value === null) {
             $token = $this->current();
             if ($token->is(TokenType::Invalid)) {
-                $this->error("Invalid token: {$token->value}", $token->span);
+                $this->error("Invalid token: `{$token->value}`", $token->span);
             } else {
                 $this->error('Expected value', $token->span);
             }

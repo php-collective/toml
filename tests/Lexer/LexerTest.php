@@ -70,6 +70,15 @@ final class LexerTest extends TestCase
         $this->assertSame(0b1010, $tokens[4]->parsed);
     }
 
+    public function testNegativeOctalAndBinary(): void
+    {
+        $lexer = new Lexer('-0o777 -0b1010');
+        $tokens = iterator_to_array($lexer->tokenize());
+
+        $this->assertSame(-0o777, $tokens[0]->parsed);
+        $this->assertSame(-0b1010, $tokens[2]->parsed);
+    }
+
     public function testFloat(): void
     {
         $lexer = new Lexer('3.14 -0.5 1e10 6.02e+23');

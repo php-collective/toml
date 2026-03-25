@@ -29,7 +29,7 @@ final class LiteralsAndDateTimeTest extends TestCase
         $result = Toml::tryParse("value = 1.\n");
 
         $this->assertFalse($result->isValid());
-        $this->assertSame('Invalid token: 1.', $result->getErrors()[0]->message);
+        $this->assertSame('Invalid token: `1.`', $result->getErrors()[0]->message);
     }
 
     public function testParsesLowercaseDateTimeSeparator(): void
@@ -53,7 +53,7 @@ final class LiteralsAndDateTimeTest extends TestCase
         $result = Toml::tryParse("value = \"\\uZZZZ\"\n");
 
         $this->assertFalse($result->isValid());
-        $this->assertSame('Invalid token: "\\uZZZZ"', $result->getErrors()[0]->message);
+        $this->assertSame('Invalid token: `"\\uZZZZ"`', $result->getErrors()[0]->message);
     }
 
     public function testRejectsInvalidSurrogateEscape(): void
@@ -61,6 +61,6 @@ final class LiteralsAndDateTimeTest extends TestCase
         $result = Toml::tryParse("value = \"\\uD800\"\n");
 
         $this->assertFalse($result->isValid());
-        $this->assertSame('Invalid token: "\\uD800"', $result->getErrors()[0]->message);
+        $this->assertSame('Invalid token: `"\\uD800"`', $result->getErrors()[0]->message);
     }
 }

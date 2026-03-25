@@ -641,9 +641,10 @@ final class Lexer
             str_starts_with($clean, '0o') || str_starts_with($clean, '0O') ||
             str_starts_with($clean, '+0o') || str_starts_with($clean, '-0o')
         ) {
-            $hex = str_replace(['0o', '0O'], '', $clean);
-            $parsed = intval($hex, 8);
-            if (str_starts_with($clean, '-')) {
+            $negative = str_starts_with($clean, '-');
+            $oct = str_replace(['0o', '0O', '+', '-'], '', $clean);
+            $parsed = intval($oct, 8);
+            if ($negative) {
                 $parsed = -$parsed;
             }
 

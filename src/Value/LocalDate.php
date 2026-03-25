@@ -12,7 +12,7 @@ final readonly class LocalDate implements TomlValue
     public function __construct(public string $value)
     {
         if (!TemporalValidator::isValidLocalDate($value)) {
-            throw new InvalidArgumentException("Invalid TOML local date: {$value}");
+            throw new InvalidArgumentException("Invalid TOML local date: `{$value}`");
         }
     }
 
