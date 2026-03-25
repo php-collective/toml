@@ -16,6 +16,7 @@ final class ArrayValue extends AbstractValue
      * @param bool $hasTrailingComma
      * @param int|null $originalItemCount
      * @param string $raw
+     * @param array{opening:string, beforeComma:string, afterComma:string, closing:string, trailingComma:bool}|null $singleLineStyle
      */
     public function __construct(
         public array $items,
@@ -25,6 +26,7 @@ final class ArrayValue extends AbstractValue
         public bool $hasTrailingComma = false,
         public ?int $originalItemCount = null,
         public string $raw = '',
+        public ?array $singleLineStyle = null,
     ) {
         parent::__construct($span);
     }

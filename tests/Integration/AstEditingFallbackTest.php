@@ -67,7 +67,7 @@ TOML, $encoded);
         $this->assertSame("point = { x = 1, y = 2 }\n", $encoded);
     }
 
-    public function testEncodeDocumentCanonicalizesSingleLineArrayDelimitersForInsertedItem(): void
+    public function testEncodeDocumentPreservesSingleLineArrayDelimiterStyleForInsertedItemWhenConsistent(): void
     {
         $doc = Toml::parse("values = [ 1 ,2 ]\n", true);
 
@@ -79,10 +79,10 @@ TOML, $encoded);
 
         $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
-        $this->assertSame("values = [1, 2, 3]\n", $encoded);
+        $this->assertSame("values = [ 1 ,2 ,3]\n", $encoded);
     }
 
-    public function testEncodeDocumentCanonicalizesInlineTableDelimitersForInsertedItem(): void
+    public function testEncodeDocumentPreservesSingleLineInlineTableDelimiterStyleForInsertedItemWhenConsistent(): void
     {
         $doc = Toml::parse("point = { x = 1,  y = 2 }\n", true);
 
@@ -98,12 +98,12 @@ TOML, $encoded);
 
         $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
-        $this->assertSame("point = { x = 1, y = 2, z = 3 }\n", $encoded);
+        $this->assertSame("point = { x = 1,  y = 2,  z = 3}\n", $encoded);
     }
 
-    public function testEncodeDocumentCanonicalizesSingleLineArrayAfterRemoval(): void
+    public function testEncodeDocumentPreservesSingleLineArrayDelimiterStyleAfterRemovalWhenAvailable(): void
     {
-        $doc = Toml::parse("values = [ 1 ,2 , 3 ]\n", true);
+        $doc = Toml::parse("values = [ 1 ,2,3 ]\n", true);
 
         $item = $doc->items[0];
         $this->assertInstanceOf(KeyValue::class, $item);
@@ -113,7 +113,7 @@ TOML, $encoded);
 
         $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
-        $this->assertSame("values = [1, 3]\n", $encoded);
+        $this->assertSame("values = [ 1 ,3]\n", $encoded);
     }
 
     public function testEncodeDocumentCanonicalizesInlineTableAfterRemoval(): void
@@ -131,6 +131,66 @@ TOML, $encoded);
         $this->assertSame("point = { x = 1, z = 3 }\n", $encoded);
     }
 
+    public function testEncodeDocumentPreservesSingleLineArrayDelimiterStyleAfterRemovalWhenConsistent(): void
+    {
+        $doc = Toml::parse("values = [ 1 , 2 , 3 ]\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+        $this->assertInstanceOf(ArrayValue::class, $item->value);
+
+        array_splice($item->value->items, 1, 1);
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame("values = [ 1 , 3]\n", $encoded);
+    }
+
+    public function testEncodeDocumentPreservesSingleLineInlineTableDelimiterStyleAfterRemovalWhenConsistent(): void
+    {
+        $doc = Toml::parse("point = { x = 1,  y = 2,  z = 3 }\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+        $this->assertInstanceOf(InlineTable::class, $item->value);
+
+        array_splice($item->value->items, 1, 1);
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame("point = { x = 1,  z = 3}\n", $encoded);
+    }
+
+    public function testEncodeDocumentPreservesSingleLineArrayStyleWhenRemovalLeavesOneItem(): void
+    {
+        $doc = Toml::parse("values = [ 1 , 2 ]\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+        $this->assertInstanceOf(ArrayValue::class, $item->value);
+
+        array_splice($item->value->items, 1, 1);
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame("values = [ 1]\n", $encoded);
+    }
+
+    public function testEncodeDocumentPreservesSingleLineInlineTableStyleWhenRemovalLeavesOneItem(): void
+    {
+        $doc = Toml::parse("point = { x = 1,  y = 2 }\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+        $this->assertInstanceOf(InlineTable::class, $item->value);
+
+        array_splice($item->value->items, 1, 1);
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame("point = { x = 1}\n", $encoded);
+    }
+
     public function testEncodeDocumentCanonicalizesNestedSingleLineCollectionAfterReplacement(): void
     {
         $doc = Toml::parse("point = { dims = [ 1 ,2 ] }\n", true);
@@ -144,14 +204,14 @@ TOML, $encoded);
 
         $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
-        $this->assertSame("point = { dims = [1, 9] }\n", $encoded);
+        $this->assertSame("point = { dims = [ 1 ,9] }\n", $encoded);
     }
 
-    public function testEncodeDocumentKeepsOuterMultilineLayoutWhileCanonicalizingNestedArrayRemoval(): void
+    public function testEncodeDocumentKeepsOuterMultilineLayoutWhilePreservingNestedArrayDelimiterStyleWhenAvailable(): void
     {
         $doc = Toml::parse(<<<'TOML'
 items = [
-  { dims = [ 1 ,2 , 3 ] },
+  { dims = [ 1 ,2,3 ] },
 ]
 TOML, true);
 
@@ -167,7 +227,7 @@ TOML, true);
 
         $this->assertSame(<<<'TOML'
 items = [
-  { dims = [1, 3] },
+  { dims = [ 1 ,3] },
 ]
 TOML, $encoded);
     }
@@ -196,7 +256,7 @@ TOML, true);
 
         $this->assertSame(<<<'TOML'
 items = [
-  { point = { x = 1, z = 9 } },
+  { point = { x = 1,  z = 9} },
 ]
 TOML, $encoded);
     }

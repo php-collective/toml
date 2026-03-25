@@ -112,7 +112,7 @@ $toml = Toml::encode([
 
 ## Null Values
 
-TOML has no null type. PHP `null` values throw `EncodeException` during encoding:
+TOML has no null type. By default, PHP `null` values throw `EncodeException` during encoding:
 
 ```php
 Toml::encode([
@@ -120,6 +120,20 @@ Toml::encode([
     'missing' => null,
 ]); // Throws EncodeException
 ```
+
+**Workaround:** Use the `skipNulls` option to silently omit null values:
+
+```php
+use PhpCollective\Toml\Encoder\EncoderOptions;
+
+$toml = Toml::encode([
+    'present' => 'value',
+    'missing' => null,
+], new EncoderOptions(skipNulls: true));
+// Output: present = "value"
+```
+
+This also works for nulls in arrays and inline tables.
 
 ## Object Encoding
 

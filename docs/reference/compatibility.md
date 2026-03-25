@@ -41,9 +41,9 @@ Canonical local formatting currently means:
 - dotted-key and table-header edits can keep original separator spacing, including compatible segment style changes
 - arrays without preserved local trivia encode as `[1, 2]`
 - inserted items in multiline parsed arrays reuse inferred indentation when possible
-- single-line parsed arrays with inserted, removed, or synthetic replaced items canonicalize to `[1, 2, 3]` style output
+- single-line parsed arrays with shape-changing edits preserve consistent delimiter style when it can be inferred; otherwise they canonicalize to `[1, 2, 3]` style output
 - inline tables without preserved local trivia encode as `{ x = 1, y = 2 }`
-- inline tables with inserted, removed, or synthetic replaced items canonicalize local delimiter spacing
+- inline tables with shape-changing edits preserve consistent delimiter style when it can be inferred; otherwise they canonicalize local spacing
 
 This gives lossless preservation for unchanged parsed regions, but edited regions still follow editing rules rather than full formatter semantics.
 

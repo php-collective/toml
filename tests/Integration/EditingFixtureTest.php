@@ -32,8 +32,13 @@ final class EditingFixtureTest extends TestCase
         $document = Toml::parse($input, true);
 
         match (basename($caseDir)) {
+            'single-line-array-insert-consistent' => $this->applySingleLineArrayInsert($document),
             'single-line-array-remove' => $this->applySingleLineArrayRemoval($document),
+            'single-line-array-remove-to-one' => $this->applySingleLineArrayRemovalToOne($document),
+            'single-line-array-remove-consistent' => $this->applySingleLineArrayRemoval($document),
             'single-line-inline-insert' => $this->applySingleLineInlineInsert($document),
+            'single-line-inline-remove-to-one' => $this->applySingleLineInlineRemovalToOne($document),
+            'single-line-inline-remove-consistent' => $this->applySingleLineInlineRemoval($document),
             'single-line-value-replace' => $this->applySingleLineValueReplace($document),
             'single-line-inline-value-replace' => $this->applySingleLineInlineValueReplace($document),
             'multiline-string-replace' => $this->applyMultilineStringReplace($document),
@@ -86,6 +91,24 @@ final class EditingFixtureTest extends TestCase
         array_splice($item->value->items, 1, 1);
     }
 
+    private function applySingleLineArrayInsert(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+        self::assertInstanceOf(ArrayValue::class, $item->value);
+
+        $item->value->items[] = new IntegerValue(3, IntegerBase::Decimal, $this->span());
+    }
+
+    private function applySingleLineArrayRemovalToOne(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+        self::assertInstanceOf(ArrayValue::class, $item->value);
+
+        array_splice($item->value->items, 1, 1);
+    }
+
     private function applySingleLineInlineInsert(Document $document): void
     {
         $item = $document->items[0];
@@ -97,6 +120,24 @@ final class EditingFixtureTest extends TestCase
             new IntegerValue(3, IntegerBase::Decimal, $this->span()),
             $this->span(),
         );
+    }
+
+    private function applySingleLineInlineRemoval(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+        self::assertInstanceOf(InlineTable::class, $item->value);
+
+        array_splice($item->value->items, 1, 1);
+    }
+
+    private function applySingleLineInlineRemovalToOne(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+        self::assertInstanceOf(InlineTable::class, $item->value);
+
+        array_splice($item->value->items, 1, 1);
     }
 
     private function applyNestedMultilineArrayRemoval(Document $document): void

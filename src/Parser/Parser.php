@@ -422,7 +422,16 @@ final class Parser
         $this->expect(TokenType::RightBracket);
         $span = $start->merge($this->previous()->span);
 
-        return new ArrayValue($items, $span, $openingTrivia, $closingTrivia, $hasTrailingComma, count($items), $this->slice($span));
+        return new ArrayValue(
+            $items,
+            $span,
+            $openingTrivia,
+            $closingTrivia,
+            $hasTrailingComma,
+            count($items),
+            $this->slice($span),
+            $this->inferSingleLineArrayStyle($items, $openingTrivia, $closingTrivia, $hasTrailingComma),
+        );
     }
 
     private function parseInlineTable(): InlineTable
@@ -487,7 +496,15 @@ final class Parser
         $this->expect(TokenType::RightBrace);
         $span = $start->merge($this->previous()->span);
 
-        return new InlineTable($items, $span, $openingTrivia, $closingTrivia, count($items), $this->slice($span));
+        return new InlineTable(
+            $items,
+            $span,
+            $openingTrivia,
+            $closingTrivia,
+            count($items),
+            $this->slice($span),
+            $this->inferSingleLineInlineTableStyle($items, $openingTrivia, $closingTrivia),
+        );
     }
 
     // Helper methods
@@ -659,6 +676,108 @@ final class Parser
     private function slicePrefixTo(Span $container, Span $end): string
     {
         return substr($this->input, $container->start, $end->start - $container->start);
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Value\Value> $items
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $openingTrivia
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $closingTrivia
+     * @param bool $hasTrailingComma
+     *
+     * @return array{opening:string, beforeComma:string, afterComma:string, closing:string, trailingComma:bool}|null
+     */
+    private function inferSingleLineArrayStyle(array $items, array $openingTrivia, array $closingTrivia, bool $hasTrailingComma): ?array
+    {
+        $opening = $this->singleLineWhitespaceTrivia($openingTrivia);
+        $closing = $this->singleLineWhitespaceTrivia($closingTrivia);
+        if ($opening === null || $closing === null) {
+            return null;
+        }
+
+        if (count($items) < 2) {
+            return null;
+        }
+
+        $beforeComma = null;
+        $afterComma = null;
+
+        for ($index = 0, $itemCount = count($items); $index < $itemCount - 1; $index++) {
+            $currentBeforeComma = $this->singleLineWhitespaceTrivia($items[$index]->getTrailingTrivia());
+            $currentAfterComma = $this->singleLineWhitespaceTrivia($items[$index + 1]->getLeadingTrivia());
+            if ($currentBeforeComma === null || $currentAfterComma === null) {
+                return null;
+            }
+
+            $beforeComma ??= $currentBeforeComma;
+            $afterComma ??= $currentAfterComma;
+            if ($beforeComma !== $currentBeforeComma || $afterComma !== $currentAfterComma) {
+                return null;
+            }
+        }
+
+        return [
+            'opening' => $opening,
+            'beforeComma' => $beforeComma,
+            'afterComma' => $afterComma,
+            'closing' => $closing,
+            'trailingComma' => $hasTrailingComma,
+        ];
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\KeyValue> $items
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $openingTrivia
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $closingTrivia
+     *
+     * @return array{opening:string, afterComma:string, closing:string}|null
+     */
+    private function inferSingleLineInlineTableStyle(array $items, array $openingTrivia, array $closingTrivia): ?array
+    {
+        $opening = $this->singleLineWhitespaceTrivia($openingTrivia);
+        $closing = $this->singleLineWhitespaceTrivia($closingTrivia);
+        if ($opening === null || $closing === null) {
+            return null;
+        }
+
+        if (count($items) < 2) {
+            return null;
+        }
+
+        $afterComma = null;
+
+        for ($index = 1, $itemCount = count($items); $index < $itemCount; $index++) {
+            $currentAfterComma = $this->singleLineWhitespaceTrivia($items[$index]->getLeadingTrivia());
+            if ($currentAfterComma === null) {
+                return null;
+            }
+
+            $afterComma ??= $currentAfterComma;
+            if ($afterComma !== $currentAfterComma) {
+                return null;
+            }
+        }
+
+        return [
+            'opening' => $opening,
+            'afterComma' => $afterComma,
+            'closing' => $closing,
+        ];
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $trivia
+     */
+    private function singleLineWhitespaceTrivia(array $trivia): ?string
+    {
+        $buffer = '';
+        foreach ($trivia as $item) {
+            if ($item->kind !== TriviaKind::Whitespace) {
+                return null;
+            }
+            $buffer .= $item->value;
+        }
+
+        return $buffer;
     }
 
     private function error(string $message, Span $span, ?string $hint = null): void

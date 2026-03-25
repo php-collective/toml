@@ -83,6 +83,27 @@ $toml = Toml::encode([
 ], new EncoderOptions(newline: "\r\n"));
 ```
 
+### Skip Null Values
+
+By default, `null` values throw `EncodeException`. Use `skipNulls` to silently omit them:
+
+```php
+$toml = Toml::encode([
+    'name' => 'Alice',
+    'email' => null,  // Will be omitted
+    'age' => 30,
+], new EncoderOptions(skipNulls: true));
+```
+
+Output:
+
+```toml
+name = "Alice"
+age = 30
+```
+
+This also filters nulls from arrays and inline tables.
+
 ## Date and Time Encoding
 
 ### Offset Datetime
@@ -205,7 +226,7 @@ $toml = Toml::encodeDocument(
 `encodeDocument()` defaults to normalized output. Use `DocumentFormattingMode::SourceAware` when you want minimal-diff, source-aware behavior for trivia-preserving ASTs.
 :::
 
-In `SourceAware` mode, unchanged parsed regions can round-trip losslessly and edited regions follow explicit local fallback rules. Nodes without preserved trivia fall back to canonical local formatting. Compatible key or value edits can still preserve original key/value separator spacing, and compatible dotted-key or table-header edits can keep their original separator spacing even when an individual segment changes style. Inserted inline-table entries encode with single spaces, inserted items in multiline parsed arrays reuse inferred indentation when possible, and edited single-line collections normalize their local delimiter spacing when their shape changes or synthetic replacements are introduced. That fallback is local to the edited collection, so an outer multiline structure can still preserve its layout while a nested single-line collection normalizes.
+In `SourceAware` mode, unchanged parsed regions can round-trip losslessly and edited regions follow explicit local fallback rules. Nodes without preserved trivia fall back to canonical local formatting. Compatible key or value edits can still preserve original key/value separator spacing, and compatible dotted-key or table-header edits can keep their original separator spacing even when an individual segment changes style. Inserted items in multiline parsed arrays reuse inferred indentation when possible. For single-line arrays and inline tables, shape-changing edits preserve delimiter spacing when the original local style is consistent; the parser now stores that local style explicitly so it can survive edits that remove the evidence needed for later inference. This is still collection-local rather than formatter-global: the encoder preserves the local comma and opening-spacing style more reliably than every exact closing-delimiter whitespace detail. If no consistent local style is available, the encoder canonicalizes locally.
 
 ## Error Handling
 

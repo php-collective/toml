@@ -73,6 +73,9 @@ final class Encoder
         // First pass: scalar values
         foreach ($keys as $key) {
             $value = $data[$key];
+            if ($value === null && $this->options->skipNulls) {
+                continue;
+            }
             if (!is_array($value) || $this->isInlineArray($value)) {
                 $lines[] = $this->encodeKey((string)$key) . ' = ' . $this->encodeValue($value);
             }
@@ -326,6 +329,11 @@ final class Encoder
             !$multiline
             && ($this->arrayHasSyntheticItems($value) || $this->collectionShapeChanged($value->originalItemCount, count($value->items)))
         ) {
+            $style = $value->singleLineStyle ?? $this->inferSingleLineArrayStyle($value);
+            if ($style !== null) {
+                return $this->formatSingleLineArrayWithStyle($value, $style);
+            }
+
             return '[' . implode(', ', array_map(fn (Value $item) => $this->encodeAstValue($item), $value->items)) . ']';
         }
 
@@ -421,6 +429,11 @@ final class Encoder
 
         // For shape changes, use formatter-style with inferred spacing
         if ($this->inlineTableHasSyntheticItems($value) || $this->collectionShapeChanged($value->originalItemCount, count($value->items))) {
+            $style = $value->singleLineStyle ?? $this->inferSingleLineInlineTableStyle($value);
+            if ($style !== null) {
+                return $this->formatInlineTableWithStyle($value, $style);
+            }
+
             return $this->formatInlineTable($value);
         }
 
@@ -474,6 +487,56 @@ final class Encoder
             fn (KeyValue $item) => $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value),
             $value->items,
         )) . ' }';
+    }
+
+    /**
+     * @param \PhpCollective\Toml\Ast\Value\ArrayValue $value
+     * @param array{opening:string, beforeComma:string, afterComma:string, closing:string, trailingComma:bool} $style
+     */
+    private function formatSingleLineArrayWithStyle(ArrayValue $value, array $style): string
+    {
+        if ($value->items === []) {
+            return '[' . $style['opening'] . $style['closing'] . ']';
+        }
+
+        $output = '[' . $style['opening'];
+
+        foreach ($value->items as $index => $item) {
+            if ($index > 0) {
+                $output .= $style['beforeComma'] . ',' . $style['afterComma'];
+            }
+
+            $output .= $this->encodeAstValue($item);
+        }
+
+        if ($style['trailingComma']) {
+            $output .= $style['beforeComma'] . ',';
+        }
+
+        return $output . $style['closing'] . ']';
+    }
+
+    /**
+     * @param \PhpCollective\Toml\Ast\Value\InlineTable $value
+     * @param array{opening:string, afterComma:string, closing:string} $style
+     */
+    private function formatInlineTableWithStyle(InlineTable $value, array $style): string
+    {
+        if ($value->items === []) {
+            return '{' . $style['opening'] . $style['closing'] . '}';
+        }
+
+        $output = '{' . $style['opening'];
+
+        foreach ($value->items as $index => $item) {
+            if ($index > 0) {
+                $output .= ',' . $style['afterComma'];
+            }
+
+            $output .= $this->encodeAstKeyValue($item);
+        }
+
+        return $output . $style['closing'] . '}';
     }
 
     private function encodeMultilineBasicString(string $value): string
@@ -808,6 +871,123 @@ final class Encoder
         return $trivia !== [];
     }
 
+    /**
+     * @return array{opening:string, beforeComma:string, afterComma:string, closing:string, trailingComma:bool}|null
+     */
+    private function inferSingleLineArrayStyle(ArrayValue $value): ?array
+    {
+        if (!$this->singleLineCollectionTriviaIsReusable($value->openingTrivia, $value->closingTrivia)) {
+            return null;
+        }
+
+        $opening = $this->encodeTrivia($value->openingTrivia);
+        $closing = $this->encodeTrivia($value->closingTrivia);
+
+        $beforeComma = null;
+        $afterComma = null;
+        $observedPair = false;
+        $itemCount = count($value->items);
+
+        for ($index = 0; $index < $itemCount - 1; $index++) {
+            if ($this->isSyntheticNode($value->items[$index]) || $this->isSyntheticNode($value->items[$index + 1])) {
+                continue;
+            }
+
+            $currentBeforeComma = $this->singleLineWhitespaceTrivia($value->items[$index]->getTrailingTrivia());
+            $currentAfterComma = $this->singleLineWhitespaceTrivia($value->items[$index + 1]->getLeadingTrivia());
+
+            if ($currentBeforeComma === null || $currentAfterComma === null) {
+                return null;
+            }
+
+            $observedPair = true;
+            $beforeComma ??= $currentBeforeComma;
+            $afterComma ??= $currentAfterComma;
+
+            if ($beforeComma !== $currentBeforeComma || $afterComma !== $currentAfterComma) {
+                return null;
+            }
+        }
+
+        if (!$observedPair) {
+            return null;
+        }
+
+        return [
+            'opening' => $opening,
+            'beforeComma' => $beforeComma ?? '',
+            'afterComma' => $afterComma ?? ' ',
+            'closing' => $closing,
+            'trailingComma' => $value->hasTrailingComma,
+        ];
+    }
+
+    /**
+     * @return array{opening:string, afterComma:string, closing:string}|null
+     */
+    private function inferSingleLineInlineTableStyle(InlineTable $value): ?array
+    {
+        if (!$this->singleLineCollectionTriviaIsReusable($value->openingTrivia, $value->closingTrivia)) {
+            return null;
+        }
+
+        $opening = $this->encodeTrivia($value->openingTrivia);
+        $closing = $this->encodeTrivia($value->closingTrivia);
+
+        $afterComma = null;
+        $observedPair = false;
+        $itemCount = count($value->items);
+
+        for ($index = 1; $index < $itemCount; $index++) {
+            if ($this->isSyntheticNode($value->items[$index - 1]) || $this->isSyntheticNode($value->items[$index])) {
+                continue;
+            }
+
+            $currentAfterComma = $this->singleLineWhitespaceTrivia($value->items[$index]->getLeadingTrivia());
+            if ($currentAfterComma === null) {
+                return null;
+            }
+
+            $observedPair = true;
+            $afterComma ??= $currentAfterComma;
+            if ($afterComma !== $currentAfterComma) {
+                return null;
+            }
+        }
+
+        if (!$observedPair) {
+            return null;
+        }
+
+        return [
+            'opening' => $opening !== '' ? $opening : ' ',
+            'afterComma' => $afterComma ?? ' ',
+            'closing' => $closing !== '' ? $closing : ' ',
+        ];
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $openingTrivia
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $closingTrivia
+     */
+    private function singleLineCollectionTriviaIsReusable(array $openingTrivia, array $closingTrivia): bool
+    {
+        return $this->singleLineWhitespaceTrivia($openingTrivia) !== null
+            && $this->singleLineWhitespaceTrivia($closingTrivia) !== null;
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $trivia
+     */
+    private function singleLineWhitespaceTrivia(array $trivia): ?string
+    {
+        if ($trivia === []) {
+            return '';
+        }
+
+        return $this->triviaIsOnlyWhitespace($trivia) ? $this->encodeTrivia($trivia) : null;
+    }
+
     private function endsWithNewline(string $value): bool
     {
         return str_ends_with($value, "\n") || str_ends_with($value, "\r\n");
@@ -830,6 +1010,9 @@ final class Encoder
      */
     private function encodeArray(array $value): string
     {
+        if ($this->options->skipNulls) {
+            $value = array_filter($value, static fn ($v) => $v !== null);
+        }
         $items = array_map(fn ($v) => $this->encodeValue($v), $value);
 
         return '[' . implode(', ', $items) . ']';
@@ -842,6 +1025,9 @@ final class Encoder
     {
         $items = [];
         foreach ($value as $k => $v) {
+            if ($v === null && $this->options->skipNulls) {
+                continue;
+            }
             $items[] = $this->encodeKey((string)$k) . ' = ' . $this->encodeValue($v);
         }
 

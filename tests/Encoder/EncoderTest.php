@@ -182,6 +182,65 @@ final class EncoderTest extends TestCase
         $encoder->encode(['value' => null]);
     }
 
+    public function testEncodeSkipNullsInTable(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(skipNulls: true));
+
+        $result = $encoder->encode([
+            'present' => 'value',
+            'missing' => null,
+            'also_present' => 42,
+        ]);
+
+        $this->assertStringContainsString('present = "value"', $result);
+        $this->assertStringContainsString('also_present = 42', $result);
+        $this->assertStringNotContainsString('missing', $result);
+    }
+
+    public function testEncodeSkipNullsInArray(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(skipNulls: true));
+
+        $result = $encoder->encode([
+            'items' => [1, null, 2, null, 3],
+        ]);
+
+        $this->assertStringContainsString('items = [1, 2, 3]', $result);
+    }
+
+    public function testEncodeSkipNullsInInlineTable(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(skipNulls: true));
+
+        $result = $encoder->encode([
+            'points' => [
+                ['x' => 1, 'y' => null, 'z' => 3],
+            ],
+        ]);
+
+        $this->assertStringContainsString('x = 1', $result);
+        $this->assertStringContainsString('z = 3', $result);
+        $this->assertStringNotContainsString('y', $result);
+    }
+
+    public function testEncodeSkipNullsInNestedTable(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(skipNulls: true));
+
+        $result = $encoder->encode([
+            'database' => [
+                'host' => 'localhost',
+                'password' => null,
+                'port' => 5432,
+            ],
+        ]);
+
+        $this->assertStringContainsString('[database]', $result);
+        $this->assertStringContainsString('host = "localhost"', $result);
+        $this->assertStringContainsString('port = 5432', $result);
+        $this->assertStringNotContainsString('password', $result);
+    }
+
     public function testEncodeNestedArrayOfTables(): void
     {
         $encoder = new Encoder(new EncoderOptions());

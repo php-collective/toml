@@ -10,6 +10,7 @@ final readonly class EncoderOptions
         public bool $sortKeys = false,
         public string $newline = "\n",
         public DocumentFormattingMode $documentFormatting = DocumentFormattingMode::Normalized,
+        public bool $skipNulls = false,
     ) {
     }
 }
