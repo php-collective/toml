@@ -210,6 +210,10 @@ final class Encoder
             return $item->rawPrefix . $this->encodeAstValue($item->value);
         }
 
+        if ($item->rawAssignmentSeparator !== '') {
+            return $this->encodeAstKey($item->key) . $item->rawAssignmentSeparator . $this->encodeAstValue($item->value);
+        }
+
         return $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value);
     }
 

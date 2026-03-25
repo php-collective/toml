@@ -168,4 +168,3 @@ The largest remaining improvement areas are:
 
 - Optional GMP-backed handling for very large integers
 - Streaming or incremental parsing for very large files
-- Broader conformance-style fixture coverage at larger scale, especially for edited-document workflows

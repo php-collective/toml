@@ -85,13 +85,22 @@ $document = $result->getDocument();
 ### Encoding
 
 ```php
+use PhpCollective\Toml\Encoder\DocumentFormattingMode;
+use PhpCollective\Toml\Encoder\EncoderOptions;
+use PhpCollective\Toml\Ast\Value\StringStyle;
+use PhpCollective\Toml\Ast\Value\StringValue;
+
 // Encode to TOML
 $toml = Toml::encode($array);
 
 // With options
 $toml = Toml::encode($array, new EncoderOptions(sortKeys: true));
 
-// Re-encode a parsed document with source-aware formatting
+// encodeDocument() is normalized by default
+$document = Toml::parse($tomlString, true);
+$toml = Toml::encodeDocument($document);
+
+// Opt into source-aware formatting for minimal-diff AST re-encoding
 $document = Toml::parse($tomlString, true);
 $document->items[0]->value = new StringValue('new value');
 $toml = Toml::encodeDocument(
@@ -99,6 +108,8 @@ $toml = Toml::encodeDocument(
     new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
 );
 ```
+
+`DocumentFormattingMode::SourceAware` is lossless for unchanged parsed regions and uses local fallback rules for edited ones.
 
 ## Error Handling
 

@@ -221,9 +221,30 @@ value = 1
 TOML, $encoded);
     }
 
+    public function testEncodeDocumentPreservesHeaderSpacingForTableKeyStyleChange(): void
+    {
+        $doc = Toml::parse(<<<'TOML'
+[ server . child ]
+value = 1
+TOML, true);
+
+        $table = $doc->items[0];
+        $this->assertInstanceOf(Table::class, $table);
+
+        $table->key->parts[1] = 'new child';
+        $table->key->styles[1] = KeyStyle::Basic;
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame(<<<'TOML'
+[ server . "new child" ]
+value = 1
+TOML, $encoded);
+    }
+
     public function testEncodeDocumentPreservesDottedKeySeparatorSpacingForKeyEdit(): void
     {
-        $doc = Toml::parse("server . \"old\"   = 1\n", true);
+        $doc = Toml::parse("server . \"old\"   =   1\n", true);
 
         $item = $doc->items[0];
         $this->assertInstanceOf(KeyValue::class, $item);
@@ -232,7 +253,7 @@ TOML, $encoded);
 
         $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
-        $this->assertSame("server . \"new\" = 1\n", $encoded);
+        $this->assertSame("server . \"new\"   =   1\n", $encoded);
     }
 
     public function testEncodeDocumentPreservesAssignmentSpacingForMultilineStringEdit(): void
@@ -250,6 +271,24 @@ TOML, $encoded);
 message   =   """
 line1
 line2"""
+TOML . "\n", $encoded);
+    }
+
+    public function testEncodeDocumentPreservesAssignmentSpacingForMultilineLiteralStringEdit(): void
+    {
+        $doc = Toml::parse("message   =   'old'\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+
+        $item->value = new StringValue("line1\nline2", StringStyle::MultiLineLiteral, $this->span());
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame(<<<'TOML'
+message   =   '''
+line1
+line2'''
 TOML . "\n", $encoded);
     }
 
@@ -273,9 +312,44 @@ value = 1
 TOML, $encoded);
     }
 
+    public function testEncodeDocumentPreservesArrayTableHeaderSpacingForKeyStyleChange(): void
+    {
+        $doc = Toml::parse(<<<'TOML'
+[[ products . "old name" ]]
+value = 1
+TOML, true);
+
+        $table = $doc->items[0];
+        $this->assertInstanceOf(Table::class, $table);
+
+        $table->key->parts[1] = 'new name';
+        $table->key->styles[1] = KeyStyle::Literal;
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame(<<<'TOML'
+[[ products . 'new name' ]]
+value = 1
+TOML, $encoded);
+    }
+
+    public function testEncodeDocumentPreservesLiteralKeyStyleAndAssignmentSpacingForKeyEdit(): void
+    {
+        $doc = Toml::parse("'old key'   =   1\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+
+        $item->key->parts[0] = 'new key';
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame("'new key'   =   1\n", $encoded);
+    }
+
     public function testEncodeDocumentPreservesDottedKeySpacingInsideInlineTableEdit(): void
     {
-        $doc = Toml::parse("point = { nested . \"old\" = 1, plain = 2 }\n", true);
+        $doc = Toml::parse("point = { nested . \"old\"   =   1, plain = 2 }\n", true);
 
         $item = $doc->items[0];
         $this->assertInstanceOf(KeyValue::class, $item);
@@ -285,14 +359,30 @@ TOML, $encoded);
 
         $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
-        $this->assertSame("point = { nested . \"new\" = 1, plain = 2 }\n", $encoded);
+        $this->assertSame("point = { nested . \"new\"   =   1, plain = 2 }\n", $encoded);
+    }
+
+    public function testEncodeDocumentPreservesDottedKeySpacingInsideInlineTableStyleChange(): void
+    {
+        $doc = Toml::parse("point = { nested . child   =   1, plain = 2 }\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+        $this->assertInstanceOf(InlineTable::class, $item->value);
+
+        $item->value->items[0]->key->parts[1] = 'new child';
+        $item->value->items[0]->key->styles[1] = KeyStyle::Basic;
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame("point = { nested . \"new child\"   =   1, plain = 2 }\n", $encoded);
     }
 
     public function testEncodeDocumentPreservesDottedKeySpacingInsideArrayTableEntryEdit(): void
     {
         $doc = Toml::parse(<<<'TOML'
 [[ products ]]
-name . "old" = 1
+name . "old"   =   1
 TOML, true);
 
         $table = $doc->items[0];
@@ -305,7 +395,29 @@ TOML, true);
 
         $this->assertSame(<<<'TOML'
 [[ products ]]
-name . "new" = 1
+name . "new"   =   1
+TOML, $encoded);
+    }
+
+    public function testEncodeDocumentPreservesDottedKeySpacingInsideArrayTableEntryStyleChange(): void
+    {
+        $doc = Toml::parse(<<<'TOML'
+[[ products ]]
+name . child   =   1
+TOML, true);
+
+        $table = $doc->items[0];
+        $this->assertInstanceOf(Table::class, $table);
+        $this->assertCount(1, $table->items);
+
+        $table->items[0]->key->parts[1] = 'new child';
+        $table->items[0]->key->styles[1] = KeyStyle::Basic;
+
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame(<<<'TOML'
+[[ products ]]
+name . "new child"   =   1
 TOML, $encoded);
     }
 

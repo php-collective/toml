@@ -37,7 +37,8 @@ For `Toml::parse($input, true)` followed by `Toml::encodeDocument($document, new
 
 Canonical local formatting currently means:
 
-- unchanged key/value structure can keep original separator spacing when only the value changes
+- unchanged key/value structure can keep original separator spacing for compatible key-only and value-only edits
+- dotted-key and table-header edits can keep original separator spacing, including compatible segment style changes
 - arrays without preserved local trivia encode as `[1, 2]`
 - inserted items in multiline parsed arrays reuse inferred indentation when possible
 - single-line parsed arrays with inserted, removed, or synthetic replaced items canonicalize to `[1, 2, 3]` style output
@@ -46,7 +47,7 @@ Canonical local formatting currently means:
 
 This gives lossless preservation for unchanged parsed regions, but edited regions still follow editing rules rather than full formatter semantics.
 
-The repository includes edited-document fixture tests for common mutation paths, but that corpus is still curated and should not be read as full formatter-level coverage.
+The repository includes broad edited-document fixture coverage across value replacement, multiline string replacement, quoted and literal key edits, table and array-table header edits, dotted-key edits, style-changing key-segment edits, and nested collection mutations. That still does not make the encoder a general-purpose TOML formatter.
 
 ## Upgrade Guidance
 

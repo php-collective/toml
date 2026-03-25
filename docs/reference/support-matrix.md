@@ -109,7 +109,7 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 - AST editing falls back to canonical local formatting when new nodes do not carry trivia or when single-line collection shape changes invalidate preserved delimiter layout.
 - Fallback behavior is local rather than globally lossless: nested edited collections may normalize while outer layout stays preserved.
 - Small value-only edits can preserve original key/value separator spacing.
-- Edited-document fixture coverage exists, but the corpus is still curated rather than exhaustive.
+- Edited-document fixture coverage includes value edits, multiline string edits, quoted and literal key edits, table and array-table header edits, dotted-key edits, style-changing key-segment edits, and nested collection mutations.
 - Inline table formatting options beyond key sorting and newline selection are not implemented.
 
 ## Recommended Use Today
@@ -125,4 +125,3 @@ It is not yet a strong fit for:
 - lossless TOML editing
 - partial comment-preserving rewrites
 - formatter-style round-trip transformations
-- conformance-grade claims without a larger corpus

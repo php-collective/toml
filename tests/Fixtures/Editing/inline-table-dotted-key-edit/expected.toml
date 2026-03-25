@@ -1,1 +1,1 @@
-point = { nested . "new" = 1, plain = 2 }
+point = { nested . "new"   =   1, plain = 2 }

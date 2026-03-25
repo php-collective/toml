@@ -199,7 +199,14 @@ final class Parser
 
         $span = $start->merge($value->getSpan());
 
-        return new KeyValue($key, $value, $span, $this->slice($span), $this->slicePrefixTo($span, $value->getSpan()));
+        return new KeyValue(
+            $key,
+            $value,
+            $span,
+            $this->slice($span),
+            $this->slicePrefixTo($span, $value->getSpan()),
+            $this->sliceRange($key->getSpan()->end, $value->getSpan()->start),
+        );
     }
 
     private function parseKey(): ?Key

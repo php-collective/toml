@@ -37,9 +37,15 @@ final class EditingFixtureTest extends TestCase
             'single-line-value-replace' => $this->applySingleLineValueReplace($document),
             'single-line-inline-value-replace' => $this->applySingleLineInlineValueReplace($document),
             'multiline-string-replace' => $this->applyMultilineStringReplace($document),
+            'multiline-literal-string-replace' => $this->applyMultilineLiteralStringReplace($document),
             'array-table-header-edit' => $this->applyArrayTableHeaderEdit($document),
+            'array-table-header-style-change' => $this->applyArrayTableHeaderStyleChange($document),
             'inline-table-dotted-key-edit' => $this->applyInlineTableDottedKeyEdit($document),
+            'inline-table-dotted-key-style-change' => $this->applyInlineTableDottedKeyStyleChange($document),
             'array-table-dotted-key-edit' => $this->applyArrayTableDottedKeyEdit($document),
+            'array-table-dotted-key-style-change' => $this->applyArrayTableDottedKeyStyleChange($document),
+            'literal-key-edit' => $this->applyLiteralKeyEdit($document),
+            'table-header-style-change' => $this->applyTableHeaderStyleChange($document),
             'nested-multiline-array-remove' => $this->applyNestedMultilineArrayRemoval($document),
             'nested-inline-replace' => $this->applyNestedInlineReplacement($document),
             default => $this->fail('Unknown editing fixture: ' . basename($caseDir)),
@@ -131,12 +137,37 @@ final class EditingFixtureTest extends TestCase
         $item->value = new StringValue("line1\nline2", StringStyle::MultiLineBasic, $this->span());
     }
 
+    private function applyMultilineLiteralStringReplace(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+
+        $item->value = new StringValue("line1\nline2", StringStyle::MultiLineLiteral, $this->span());
+    }
+
     private function applyArrayTableHeaderEdit(Document $document): void
     {
         $table = $document->items[0];
         self::assertInstanceOf(Table::class, $table);
 
         $table->key->parts[1] = 'new.name';
+    }
+
+    private function applyArrayTableHeaderStyleChange(Document $document): void
+    {
+        $table = $document->items[0];
+        self::assertInstanceOf(Table::class, $table);
+
+        $table->key->parts[1] = 'new name';
+        $table->key->styles[1] = KeyStyle::Literal;
+    }
+
+    private function applyLiteralKeyEdit(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+
+        $item->key->parts[0] = 'new key';
     }
 
     private function applyInlineTableDottedKeyEdit(Document $document): void
@@ -148,6 +179,16 @@ final class EditingFixtureTest extends TestCase
         $item->value->items[0]->key->parts[1] = 'new';
     }
 
+    private function applyInlineTableDottedKeyStyleChange(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+        self::assertInstanceOf(InlineTable::class, $item->value);
+
+        $item->value->items[0]->key->parts[1] = 'new child';
+        $item->value->items[0]->key->styles[1] = KeyStyle::Basic;
+    }
+
     private function applyArrayTableDottedKeyEdit(Document $document): void
     {
         $table = $document->items[0];
@@ -155,6 +196,25 @@ final class EditingFixtureTest extends TestCase
         self::assertCount(1, $table->items);
 
         $table->items[0]->key->parts[1] = 'new';
+    }
+
+    private function applyArrayTableDottedKeyStyleChange(Document $document): void
+    {
+        $table = $document->items[0];
+        self::assertInstanceOf(Table::class, $table);
+        self::assertCount(1, $table->items);
+
+        $table->items[0]->key->parts[1] = 'new child';
+        $table->items[0]->key->styles[1] = KeyStyle::Basic;
+    }
+
+    private function applyTableHeaderStyleChange(Document $document): void
+    {
+        $table = $document->items[0];
+        self::assertInstanceOf(Table::class, $table);
+
+        $table->key->parts[1] = 'new child';
+        $table->key->styles[1] = KeyStyle::Basic;
     }
 
     private function applyNestedInlineReplacement(Document $document): void
