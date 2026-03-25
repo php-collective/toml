@@ -7,6 +7,7 @@ namespace PhpCollective\Toml\Test;
 use PhpCollective\Toml\Ast\Document;
 use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\EncoderOptions;
+use PhpCollective\Toml\Exception\EncodeException;
 use PhpCollective\Toml\Exception\ParseException;
 use PhpCollective\Toml\Toml;
 use PhpCollective\Toml\Value\LocalDate;
@@ -228,5 +229,77 @@ TOML);
         $this->assertSame('2024-03-15', $decoded['date']);
         $this->assertSame('10:30:45', $decoded['time']);
         $this->assertSame('2024-03-15 10:30:45', $decoded['timestamp']);
+    }
+
+    public function testEncodeFile(): void
+    {
+        $path = sys_get_temp_dir() . '/toml_test_' . uniqid() . '.toml';
+
+        try {
+            Toml::encodeFile($path, ['name' => 'test', 'count' => 42]);
+
+            $this->assertFileExists($path);
+            $content = file_get_contents($path);
+            $this->assertIsString($content);
+            $this->assertStringContainsString('name = "test"', $content);
+            $this->assertStringContainsString('count = 42', $content);
+
+            // Verify round-trip
+            $decoded = Toml::decodeFile($path);
+            $this->assertSame(['name' => 'test', 'count' => 42], $decoded);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function testEncodeFileWithOptions(): void
+    {
+        $path = sys_get_temp_dir() . '/toml_test_' . uniqid() . '.toml';
+
+        try {
+            Toml::encodeFile($path, ['zebra' => 1, 'apple' => 2], new EncoderOptions(sortKeys: true));
+
+            $content = file_get_contents($path);
+            $this->assertIsString($content);
+            $applePos = strpos($content, 'apple');
+            $zebraPos = strpos($content, 'zebra');
+
+            $this->assertLessThan($zebraPos, $applePos);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function testEncodeFileThrowsOnInvalidPath(): void
+    {
+        $this->expectException(EncodeException::class);
+        $this->expectExceptionMessage('Cannot write file');
+
+        Toml::encodeFile('/nonexistent/directory/file.toml', ['key' => 'value']);
+    }
+
+    public function testEncodeDocumentFile(): void
+    {
+        $path = sys_get_temp_dir() . '/toml_test_' . uniqid() . '.toml';
+
+        try {
+            $doc = Toml::parse("title = \"Example\"\ncount = 10\n", true);
+            Toml::encodeDocumentFile($path, $doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+            $this->assertFileExists($path);
+            $content = file_get_contents($path);
+            $this->assertSame("title = \"Example\"\ncount = 10\n", $content);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function testEncodeDocumentFileThrowsOnInvalidPath(): void
+    {
+        $this->expectException(EncodeException::class);
+        $this->expectExceptionMessage('Cannot write file');
+
+        $doc = Toml::parse('key = "value"');
+        Toml::encodeDocumentFile('/nonexistent/directory/file.toml', $doc);
     }
 }
