@@ -44,6 +44,7 @@ export default defineConfig({
             { text: 'Error Handling', link: '/guide/error-handling' },
             { text: 'AST Access', link: '/guide/ast' },
             { text: 'Encoding', link: '/guide/encoding' },
+            { text: 'CLI Tools', link: '/guide/cli' },
           ],
         },
       ],
