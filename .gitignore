@@ -26,5 +26,4 @@
 /docs/.vitepress/dist/
 /docs/.vitepress/grammars/
 /.phpstan.cache/
-ROADMAP.md
 /.playwright-mcp/
