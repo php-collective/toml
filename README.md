@@ -1,6 +1,15 @@
 # PHP TOML
 
+[![CI](https://img.shields.io/github/actions/workflow/status/php-collective/toml/ci.yml?branch=master&style=flat-square)](https://github.com/php-collective/toml/actions)
+[![Latest Stable Version](https://img.shields.io/packagist/v/php-collective/toml?style=flat-square)](https://packagist.org/packages/php-collective/toml)
+[![Total Downloads](https://img.shields.io/packagist/dt/php-collective/toml?style=flat-square)](https://packagist.org/packages/php-collective/toml)
+[![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg?style=flat-square)](https://phpstan.org/)
+[![PHP Version](https://img.shields.io/badge/php-%3E%3D8.2-8892BF.svg?style=flat-square)](https://php.net)
+[![Software License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
+
 A TOML (v1.0 and v1.1) parser and encoder for PHP with AST access and collected parse errors.
+
+**[Documentation](https://php-collective.github.io/toml/)** · **[Support Matrix](docs/reference/support-matrix.md)** · **[Contributing](CONTRIBUTING.md)**
 
 ## Features
 

@@ -202,7 +202,7 @@ $toml = Toml::encodeDocument($document);
 `encodeDocument()` can preserve parsed comments, blank lines, some lexical styles, and collection-local layout when the document was created with `Toml::parse($input, true)`. It is still not a full lossless formatter.
 :::
 
-When you edit the AST, nodes without preserved trivia fall back to canonical local formatting. Inserted inline-table entries encode with single spaces, inserted items in multiline parsed arrays reuse inferred indentation when possible, and edited single-line collections normalize their local delimiter spacing when necessary.
+When you edit the AST, nodes without preserved trivia fall back to canonical local formatting. Inserted inline-table entries encode with single spaces, inserted items in multiline parsed arrays reuse inferred indentation when possible, and edited single-line collections normalize their local delimiter spacing when their shape changes or synthetic replacements are introduced. That fallback is local to the edited collection, so an outer multiline structure can still preserve its layout while a nested single-line collection normalizes.
 
 ## Error Handling
 

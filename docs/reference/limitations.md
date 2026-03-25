@@ -151,11 +151,9 @@ key = "very deep"
 
 ## Future Improvements
 
-These limitations are planned for future versions:
+The largest remaining improvement areas are:
 
-- [x] Comment preservation for round-trip editing
-- [ ] Full formatting preservation
-- [x] Collection-local trivia preservation
-- [ ] Optional GMP support for big integers
-- [ ] Streaming parser for very large files
-- [ ] Broader conformance-style test coverage
+- Full formatting preservation rather than partial round-trip editing
+- Optional GMP-backed handling for very large integers
+- Streaming or incremental parsing for very large files
+- Broader conformance-style fixture coverage at larger scale, especially for edited-document workflows
