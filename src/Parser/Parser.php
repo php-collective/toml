@@ -92,6 +92,9 @@ final class Parser
             if ($token->is(TokenType::LeftBracket)) {
                 $table = $this->parseTableHeader();
                 if ($table !== null) {
+                    // Check that table header is followed by newline, EOF, comment, or whitespace leading to those
+                    $this->checkKeyValueTerminator();
+
                     if ($this->preserveTrivia) {
                         $table->setLeadingTrivia($leadingTrivia);
                         $table->setTrailingTrivia($this->collectTrailingTrivia());
