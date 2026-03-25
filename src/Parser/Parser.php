@@ -382,7 +382,7 @@ final class Parser
 
         $this->expect(TokenType::RightBracket);
 
-        return new ArrayValue($items, $start->merge($this->previous()->span), $openingTrivia, $closingTrivia, $hasTrailingComma);
+        return new ArrayValue($items, $start->merge($this->previous()->span), $openingTrivia, $closingTrivia, $hasTrailingComma, count($items));
     }
 
     private function parseInlineTable(): InlineTable
@@ -446,7 +446,7 @@ final class Parser
 
         $this->expect(TokenType::RightBrace);
 
-        return new InlineTable($items, $start->merge($this->previous()->span), $openingTrivia, $closingTrivia);
+        return new InlineTable($items, $start->merge($this->previous()->span), $openingTrivia, $closingTrivia, count($items));
     }
 
     // Helper methods

@@ -13,12 +13,14 @@ final class InlineTable extends AbstractValue
      * @param \PhpCollective\Toml\Lexer\Span $span
      * @param array<\PhpCollective\Toml\Ast\Trivia> $openingTrivia
      * @param array<\PhpCollective\Toml\Ast\Trivia> $closingTrivia
+     * @param int|null $originalItemCount
      */
     public function __construct(
         public array $items,
         Span $span,
         public array $openingTrivia = [],
         public array $closingTrivia = [],
+        public ?int $originalItemCount = null,
     ) {
         parent::__construct($span);
     }

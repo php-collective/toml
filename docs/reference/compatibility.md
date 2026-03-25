@@ -36,7 +36,9 @@ Canonical local formatting currently means:
 
 - arrays without preserved local trivia encode as `[1, 2]`
 - inserted items in multiline parsed arrays reuse inferred indentation when possible
+- single-line parsed arrays with synthetic inserted items canonicalize to `[1, 2, 3]` style output
 - inline tables without preserved local trivia encode as `{ x = 1, y = 2 }`
+- inline tables with synthetic inserted items canonicalize local delimiter spacing
 
 This is an editing aid, not a full formatting engine.
 

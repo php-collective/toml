@@ -106,7 +106,7 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 - The decoder supports more TOML temporal forms than the encoder can emit.
 - Multiline inline tables are not currently supported.
 - `encodeDocument()` still does not preserve all original formatting details.
-- AST editing falls back to canonical local formatting when new nodes do not carry trivia.
+- AST editing falls back to canonical local formatting when new nodes do not carry trivia, especially for single-line collection delimiters.
 - Inline table formatting options beyond key sorting and newline selection are not implemented.
 
 ## Recommended Use Today

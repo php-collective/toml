@@ -62,6 +62,40 @@ TOML, $encoded);
         $this->assertSame("point = { x = 1, y = 2 }\n", $encoded);
     }
 
+    public function testEncodeDocumentCanonicalizesSingleLineArrayDelimitersForInsertedItem(): void
+    {
+        $doc = Toml::parse("values = [ 1 ,2 ]\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+        $this->assertInstanceOf(ArrayValue::class, $item->value);
+
+        $item->value->items[] = new IntegerValue(3, IntegerBase::Decimal, $this->span());
+
+        $encoded = Toml::encodeDocument($doc);
+
+        $this->assertSame("values = [1, 2, 3]\n", $encoded);
+    }
+
+    public function testEncodeDocumentCanonicalizesInlineTableDelimitersForInsertedItem(): void
+    {
+        $doc = Toml::parse("point = { x = 1,  y = 2 }\n", true);
+
+        $item = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $item);
+        $this->assertInstanceOf(InlineTable::class, $item->value);
+
+        $item->value->items[] = new KeyValue(
+            new Key(['z'], [KeyStyle::Bare], $this->span()),
+            new IntegerValue(3, IntegerBase::Decimal, $this->span()),
+            $this->span(),
+        );
+
+        $encoded = Toml::encodeDocument($doc);
+
+        $this->assertSame("point = { x = 1, y = 2, z = 3 }\n", $encoded);
+    }
+
     private function span(): Span
     {
         return new Span(0, 0, 1, 1);

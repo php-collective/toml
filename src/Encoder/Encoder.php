@@ -261,6 +261,13 @@ final class Encoder
 
     private function encodeAstArray(ArrayValue $value): string
     {
+        if (
+            !$this->isMultilineArray($value)
+            && ($this->arrayHasSyntheticItems($value) || $this->collectionShapeChanged($value->originalItemCount, count($value->items)))
+        ) {
+            return '[' . implode(', ', array_map(fn (Value $item) => $this->encodeAstValue($item), $value->items)) . ']';
+        }
+
         $output = '[';
         $multiline = $this->isMultilineArray($value);
         $indent = $multiline ? $this->inferArrayIndentation($value) : null;
@@ -296,6 +303,13 @@ final class Encoder
 
     private function encodeAstInlineTable(InlineTable $value): string
     {
+        if ($this->inlineTableHasSyntheticItems($value) || $this->collectionShapeChanged($value->originalItemCount, count($value->items))) {
+            return '{ ' . implode(', ', array_map(
+                fn (KeyValue $item) => $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value),
+                $value->items,
+            )) . ' }';
+        }
+
         $output = '{';
 
         if ($value->items === []) {
@@ -412,6 +426,38 @@ final class Encoder
         }
 
         return false;
+    }
+
+    private function arrayHasSyntheticItems(ArrayValue $value): bool
+    {
+        foreach ($value->items as $item) {
+            if ($this->isSyntheticNode($item)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function inlineTableHasSyntheticItems(InlineTable $value): bool
+    {
+        foreach ($value->items as $item) {
+            if ($this->isSyntheticNode($item)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isSyntheticNode(Node $node): bool
+    {
+        return $node->getSpan()->length() === 0;
+    }
+
+    private function collectionShapeChanged(?int $originalItemCount, int $currentItemCount): bool
+    {
+        return $originalItemCount !== null && $originalItemCount !== $currentItemCount;
     }
 
     private function defaultArrayItemPrefix(ArrayValue $value, int $index, bool $multiline, ?string $indent): string

@@ -11,22 +11,20 @@ final class TemporalValidator
 {
     public static function isValidOffsetDateTime(string $value): bool
     {
-        if (preg_match('/^\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:[Zz]|[+-]\d{2}:\d{2})$/', $value) !== 1) {
+        // Single regex to validate format and extract date/time parts
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})[Tt ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(?:[Zz]|[+-]\d{2}:\d{2})$/', $value, $matches) !== 1) {
             return false;
         }
 
+        // Validate the datetime is parseable
         $normalized = str_replace(' ', 'T', $value);
-
         try {
             new DateTimeImmutable($normalized);
         } catch (Exception) {
             return false;
         }
 
-        if (preg_match('/^(\d{4}-\d{2}-\d{2})[Tt ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(?:[Zz]|[+-]\d{2}:\d{2})$/', $value, $matches) !== 1) {
-            return false;
-        }
-
+        // Validate date and time components (e.g., reject Feb 30)
         return self::isValidLocalDate($matches[1]) && self::isValidLocalTime($matches[2]);
     }
 

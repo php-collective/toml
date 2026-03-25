@@ -14,6 +14,7 @@ final class ArrayValue extends AbstractValue
      * @param array<\PhpCollective\Toml\Ast\Trivia> $openingTrivia
      * @param array<\PhpCollective\Toml\Ast\Trivia> $closingTrivia
      * @param bool $hasTrailingComma
+     * @param int|null $originalItemCount
      */
     public function __construct(
         public array $items,
@@ -21,6 +22,7 @@ final class ArrayValue extends AbstractValue
         public array $openingTrivia = [],
         public array $closingTrivia = [],
         public bool $hasTrailingComma = false,
+        public ?int $originalItemCount = null,
     ) {
         parent::__construct($span);
     }
