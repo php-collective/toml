@@ -153,7 +153,7 @@ key = "very deep"
 
 The largest remaining improvement areas are:
 
-- Full formatting preservation rather than partial round-trip editing
+- Full formatter-style editing for changed regions, not just lossless preservation of unchanged parsed regions
 - Optional GMP-backed handling for very large integers
 - Streaming or incremental parsing for very large files
 - Broader conformance-style fixture coverage at larger scale, especially for edited-document workflows

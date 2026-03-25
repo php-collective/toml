@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PhpCollective\Toml\Test\Integration;
 
+use PhpCollective\Toml\Encoder\DocumentFormattingMode;
+use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Toml;
 use PHPUnit\Framework\TestCase;
 
@@ -21,7 +23,7 @@ host = "localhost"
 TOML;
 
         $doc = Toml::parse($input, true);
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame($input, $encoded);
     }
@@ -34,7 +36,7 @@ TOML;
 TOML;
 
         $doc = Toml::parse($input, true);
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame($input, $encoded);
     }
@@ -50,7 +52,7 @@ line2"""
 TOML;
 
         $doc = Toml::parse($input, true);
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame($input, $encoded);
     }
@@ -68,7 +70,7 @@ value = 1
 TOML;
 
         $doc = Toml::parse($input, true);
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame($input, $encoded);
     }
@@ -84,7 +86,7 @@ values = [
 TOML;
 
         $doc = Toml::parse($input, true);
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame($input, $encoded);
     }
@@ -96,7 +98,24 @@ point = { x = 1,  y = { nested = true } }
 TOML;
 
         $doc = Toml::parse($input, true);
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame($input, $encoded);
+    }
+
+    public function testEncodeDocumentLosslesslyPreservesExactParsedLexemes(): void
+    {
+        $input = <<<'TOML'
+ title   =   'value'
+ratio = 1_2.3_4
+values = [ 1 ,2 , 3 ]
+
+[ server . "quoted.key" ] # keep header spacing
+point = { x = 1,  y = 2 }
+TOML;
+
+        $doc = Toml::parse($input, true);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame($input, $encoded);
     }

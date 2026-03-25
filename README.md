@@ -9,7 +9,7 @@
 
 A TOML (v1.0 and v1.1) parser and encoder for PHP with AST access and collected parse errors.
 
-**[Documentation](https://php-collective.github.io/toml/)** · **[Support Matrix](docs/reference/support-matrix.md)** · **[Contributing](CONTRIBUTING.md)**
+**[Documentation](https://php-collective.github.io/toml/)**
 
 ## Features
 
@@ -29,14 +29,6 @@ A TOML (v1.0 and v1.1) parser and encoder for PHP with AST access and collected 
 ```bash
 composer require php-collective/toml
 ```
-
-See [docs/reference/support-matrix.md](docs/reference/support-matrix.md) for the current support matrix and known gaps.
-
-For explicit local temporal encoding, use:
-
-- `PhpCollective\Toml\Value\LocalDate`
-- `PhpCollective\Toml\Value\LocalTime`
-- `PhpCollective\Toml\Value\LocalDateTime`
 
 ## Quick Start
 
@@ -99,11 +91,13 @@ $toml = Toml::encode($array);
 // With options
 $toml = Toml::encode($array, new EncoderOptions(sortKeys: true));
 
-// Re-encode a parsed document
-// Note: comments and original formatting are not preserved yet.
-$document = Toml::parse($tomlString);
+// Re-encode a parsed document with source-aware formatting
+$document = Toml::parse($tomlString, true);
 $document->items[0]->value = new StringValue('new value');
-$toml = Toml::encodeDocument($document);
+$toml = Toml::encodeDocument(
+    $document,
+    new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
+);
 ```
 
 ## Error Handling
@@ -145,13 +139,13 @@ The library currently supports:
 - Tables and array of tables
 - Dotted keys
 
-## Limitations
+See the [Support Matrix](https://php-collective.github.io/toml/reference/support-matrix) for current coverage and known gaps.
 
-- **Integer range**: Integers are parsed using PHP's native `int` type. Values exceeding `PHP_INT_MAX` (typically 9223372036854775807 on 64-bit systems) will be silently clamped. If you need arbitrary precision integers, consider post-processing with GMP.
-- **Round-trip preservation**: `encodeDocument()` can now preserve parsed comments, blank lines, key styles, string styles, and collection-local layout for parsed arrays and inline tables when trivia is available, but it is not yet a full lossless formatter.
-- **Temporal encode asymmetry**: Offset datetimes encode from `DateTimeInterface`, but local date/time/datetime values require explicit wrappers instead of plain strings.
-- **Support breadth**: See [docs/reference/support-matrix.md](docs/reference/support-matrix.md) for partially supported and not-yet-implemented TOML features.
-- **Compatibility**: See [docs/reference/compatibility.md](docs/reference/compatibility.md) and [UPGRADING.md](UPGRADING.md) for API and parser-strictness expectations.
+For explicit local temporal encoding, use:
+
+- `PhpCollective\Toml\Value\LocalDate`
+- `PhpCollective\Toml\Value\LocalTime`
+- `PhpCollective\Toml\Value\LocalDateTime`
 
 ## Comparison with Other PHP Libraries
 
@@ -164,6 +158,4 @@ The library currently supports:
 | Round-trip formatting preservation | Partial | Varies |
 | PHP 8.2+ Features | Yes | Varies |
 
-## License
-
-MIT License. See [LICENSE](LICENSE) for details.
+See [Limitations](https://php-collective.github.io/toml/reference/limitations) for details.

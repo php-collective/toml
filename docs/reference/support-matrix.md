@@ -89,8 +89,8 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 | Trivia preservation on document items and table entries | Partial | Available through `Toml::parse($input, true)` for leading/trailing trivia on parsed items |
 | Trivia preservation inside parsed arrays and inline tables | Partial | Collection-local item spacing and comments are preserved where represented in the AST |
 | Comment preservation on re-encode | Partial | Preserved for parsed document items, table entries, and collection items when trivia is available |
-| Formatting preservation on re-encode | Partial | Blank lines, some lexical styles, and collection-local layout are preserved, but not all formatting forms |
-| `encodeDocument()` round-trip fidelity | Partial | Better for parsed documents with trivia, still not a full lossless formatter |
+| Formatting preservation on re-encode | Partial | Available in `DocumentFormattingMode::SourceAware` for trivia-preserving ASTs |
+| `encodeDocument()` round-trip fidelity | Partial | Normalized by default; source-aware mode is lossless for unchanged parsed documents and local-fallback for edited regions |
 
 ## Tooling and Errors
 
@@ -108,6 +108,7 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 - `encodeDocument()` still does not preserve all original formatting details.
 - AST editing falls back to canonical local formatting when new nodes do not carry trivia or when single-line collection shape changes invalidate preserved delimiter layout.
 - Fallback behavior is local rather than globally lossless: nested edited collections may normalize while outer layout stays preserved.
+- Small value-only edits can preserve original key/value separator spacing.
 - Edited-document fixture coverage exists, but the corpus is still curated rather than exhaustive.
 - Inline table formatting options beyond key sorting and newline selection are not implemented.
 

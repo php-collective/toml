@@ -93,10 +93,13 @@ Encodes an AST Document to a TOML string.
 ```php
 $document = Toml::parse($original, true);
 // Modify document...
-$toml = Toml::encodeDocument($document);
+$toml = Toml::encodeDocument(
+    $document,
+    new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
+);
 ```
 
-When the document carries preserved trivia, `encodeDocument()` can preserve parsed comments, blank lines, some lexical styles, and some collection-local layout. Without trivia, it falls back to normalized output.
+`encodeDocument()` defaults to normalized output. With `DocumentFormattingMode::SourceAware`, it can preserve parsed comments, blank lines, lexical styles, and collection-local layout for trivia-preserving ASTs.
 
 ---
 
@@ -196,11 +199,22 @@ Options for TOML encoding.
 public function __construct(
     bool $sortKeys = false,
     string $newline = "\n",
+    DocumentFormattingMode $documentFormatting = DocumentFormattingMode::Normalized,
 )
 ```
 
 - `$sortKeys`: Sort keys alphabetically in output
 - `$newline`: Newline sequence to use during encoding
+- `$documentFormatting`: `Normalized` or `SourceAware` for `encodeDocument()`
+
+## DocumentFormattingMode
+
+Controls how `encodeDocument()` emits AST documents.
+
+- `DocumentFormattingMode::Normalized`
+  Produces normalized TOML output. This is the default.
+- `DocumentFormattingMode::SourceAware`
+  Reuses preserved source formatting where possible and falls back locally for edited regions.
 
 ---
 

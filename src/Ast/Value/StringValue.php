@@ -12,8 +12,13 @@ final class StringValue extends AbstractValue
         public string $value,
         public StringStyle $style,
         Span $span,
+        public string $raw = '',
+        public ?string $originalValue = null,
+        public ?StringStyle $originalStyle = null,
     ) {
         parent::__construct($span);
+        $this->originalValue ??= $value;
+        $this->originalStyle ??= $style;
     }
 
     public function getValue(): string

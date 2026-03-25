@@ -95,7 +95,7 @@ final class Toml
     }
 
     /**
-     * Encode AST document as normalized TOML output.
+     * Encode AST document as TOML output.
      */
     public static function encodeDocument(Document $doc, ?EncoderOptions $options = null): string
     {

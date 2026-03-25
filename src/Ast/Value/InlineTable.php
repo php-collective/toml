@@ -14,6 +14,7 @@ final class InlineTable extends AbstractValue
      * @param array<\PhpCollective\Toml\Ast\Trivia> $openingTrivia
      * @param array<\PhpCollective\Toml\Ast\Trivia> $closingTrivia
      * @param int|null $originalItemCount
+     * @param string $raw
      */
     public function __construct(
         public array $items,
@@ -21,6 +22,7 @@ final class InlineTable extends AbstractValue
         public array $openingTrivia = [],
         public array $closingTrivia = [],
         public ?int $originalItemCount = null,
+        public string $raw = '',
     ) {
         parent::__construct($span);
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpCollective\Toml\Test;
 
 use PhpCollective\Toml\Ast\Document;
+use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Exception\ParseException;
 use PhpCollective\Toml\Toml;
@@ -93,6 +94,14 @@ TOML);
         $result = Toml::encodeDocument($doc);
 
         $this->assertStringContainsString('original = "value"', $result);
+    }
+
+    public function testEncodeDocumentWithSourceAwareOption(): void
+    {
+        $doc = Toml::parse("original   =   \"value\"\n", true);
+        $result = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+
+        $this->assertSame("original   =   \"value\"\n", $result);
     }
 
     public function testRoundTrip(): void

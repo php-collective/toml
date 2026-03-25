@@ -9,6 +9,7 @@ final readonly class EncoderOptions
     public function __construct(
         public bool $sortKeys = false,
         public string $newline = "\n",
+        public DocumentFormattingMode $documentFormatting = DocumentFormattingMode::Normalized,
     ) {
     }
 }

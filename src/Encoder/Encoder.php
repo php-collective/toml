@@ -49,7 +49,7 @@ final class Encoder
 
     public function encodeDocument(Document $doc): string
     {
-        if (!$this->documentHasTrivia($doc)) {
+        if ($this->options->documentFormatting === DocumentFormattingMode::Normalized || !$this->documentHasTrivia($doc)) {
             $normalizer = new Normalizer();
 
             return $this->encode($normalizer->normalize($doc));
@@ -176,9 +176,11 @@ final class Encoder
         $output = $this->encodeTrivia($item->getLeadingTrivia());
 
         if ($item instanceof Table) {
-            $header = $item->isArrayTable
-                ? '[[' . $this->encodeAstKey($item->key) . ']]'
-                : '[' . $this->encodeAstKey($item->key) . ']';
+            $header = $this->isReusableTableHeader($item)
+                ? $item->rawHeader
+                : ($item->isArrayTable
+                    ? '[[' . $this->encodeAstKey($item->key) . ']]'
+                    : '[' . $this->encodeAstKey($item->key) . ']');
             $output .= $header;
             $output .= $this->encodeTrivia($item->getTrailingTrivia());
 
@@ -193,13 +195,24 @@ final class Encoder
         }
 
         if ($item instanceof KeyValue) {
-            $output .= $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value);
+            $output .= $this->isReusableKeyValue($item)
+                ? $item->raw
+                : $this->encodeAstKeyValue($item);
             $output .= $this->encodeTrivia($item->getTrailingTrivia());
 
             return $output;
         }
 
         throw new EncodeException('Unsupported AST node for document encoding');
+    }
+
+    private function encodeAstKeyValue(KeyValue $item): string
+    {
+        if ($this->isOriginalKey($item->key) && $item->rawPrefix !== '') {
+            return $item->rawPrefix . $this->encodeAstValue($item->value);
+        }
+
+        return $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value);
     }
 
     private function encodeAstKey(Key $key): string
@@ -223,12 +236,12 @@ final class Encoder
         return match (true) {
             $value instanceof StringValue => $this->encodeAstStringValue($value),
             $value instanceof IntegerValue => $this->encodeAstIntegerValue($value),
-            $value instanceof FloatValue => $this->encodeValue($value->value),
-            $value instanceof BoolValue => $value->value ? 'true' : 'false',
-            $value instanceof OffsetDateTime => $value->raw,
-            $value instanceof LocalDateTime,
-            $value instanceof LocalDate,
-            $value instanceof LocalTime => $value->value,
+            $value instanceof FloatValue => $this->isReusableFloat($value) ? $value->raw : $this->encodeValue($value->value),
+            $value instanceof BoolValue => $this->isReusableBool($value) ? $value->raw : ($value->value ? 'true' : 'false'),
+            $value instanceof OffsetDateTime => $this->isReusableOffsetDateTime($value) ? $value->raw : $value->value->format('Y-m-d\TH:i:s.uP'),
+            $value instanceof LocalDateTime => $this->isReusableLocalDateTime($value) ? $value->raw : $value->value,
+            $value instanceof LocalDate => $this->isReusableLocalDate($value) ? $value->raw : $value->value,
+            $value instanceof LocalTime => $this->isReusableLocalTime($value) ? $value->raw : $value->value,
             $value instanceof ArrayValue => $this->encodeAstArray($value),
             $value instanceof InlineTable => $this->encodeAstInlineTable($value),
             default => throw new EncodeException('Unsupported AST value for document encoding'),
@@ -237,6 +250,10 @@ final class Encoder
 
     private function encodeAstStringValue(StringValue $value): string
     {
+        if ($this->isReusableString($value)) {
+            return $value->raw;
+        }
+
         return match ($value->style) {
             StringStyle::Basic => $this->encodeString($value->value),
             StringStyle::Literal => "'" . $value->value . "'",
@@ -247,6 +264,10 @@ final class Encoder
 
     private function encodeAstIntegerValue(IntegerValue $value): string
     {
+        if ($this->isReusableInteger($value)) {
+            return $value->raw;
+        }
+
         $number = $value->value;
         $sign = $number < 0 ? '-' : '';
         $absolute = abs($number);
@@ -261,6 +282,10 @@ final class Encoder
 
     private function encodeAstArray(ArrayValue $value): string
     {
+        if ($this->isReusableArray($value)) {
+            return $value->raw;
+        }
+
         if (
             !$this->isMultilineArray($value)
             && ($this->arrayHasSyntheticItems($value) || $this->collectionShapeChanged($value->originalItemCount, count($value->items)))
@@ -303,6 +328,10 @@ final class Encoder
 
     private function encodeAstInlineTable(InlineTable $value): string
     {
+        if ($this->isReusableInlineTable($value)) {
+            return $value->raw;
+        }
+
         if ($this->inlineTableHasSyntheticItems($value) || $this->collectionShapeChanged($value->originalItemCount, count($value->items))) {
             return '{ ' . implode(', ', array_map(
                 fn (KeyValue $item) => $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value),
@@ -324,7 +353,7 @@ final class Encoder
                 $output .= $index === 0 ? ($value->openingTrivia !== [] ? $this->encodeTrivia($value->openingTrivia) : ' ') : ' ';
             }
 
-            $output .= $this->encodeAstKey($item->key) . ' = ' . $this->encodeAstValue($item->value);
+            $output .= $this->encodeAstKeyValue($item);
 
             $trailingTrivia = $item->getTrailingTrivia();
             if ($trailingTrivia !== []) {
@@ -453,6 +482,123 @@ final class Encoder
     private function isSyntheticNode(Node $node): bool
     {
         return $node->getSpan()->length() === 0;
+    }
+
+    private function isReusableKeyValue(KeyValue $item): bool
+    {
+        return $item->raw !== '' && $this->isOriginalKey($item->key) && $this->isReusableValue($item->value);
+    }
+
+    private function isReusableTableHeader(Table $table): bool
+    {
+        return $table->rawHeader !== ''
+            && $table->originalIsArrayTable === $table->isArrayTable
+            && $this->isOriginalKey($table->key);
+    }
+
+    private function isOriginalKey(Key $key): bool
+    {
+        return $key->originalParts === $key->parts
+            && $key->originalStyles === $key->styles;
+    }
+
+    private function isReusableValue(Value $value): bool
+    {
+        return match (true) {
+            $value instanceof StringValue => $this->isReusableString($value),
+            $value instanceof IntegerValue => $this->isReusableInteger($value),
+            $value instanceof FloatValue => $this->isReusableFloat($value),
+            $value instanceof BoolValue => $this->isReusableBool($value),
+            $value instanceof OffsetDateTime => $this->isReusableOffsetDateTime($value),
+            $value instanceof LocalDateTime => $this->isReusableLocalDateTime($value),
+            $value instanceof LocalDate => $this->isReusableLocalDate($value),
+            $value instanceof LocalTime => $this->isReusableLocalTime($value),
+            $value instanceof ArrayValue => $this->isReusableArray($value),
+            $value instanceof InlineTable => $this->isReusableInlineTable($value),
+            default => false,
+        };
+    }
+
+    private function isReusableString(StringValue $value): bool
+    {
+        return $value->raw !== ''
+            && $value->originalValue === $value->value
+            && $value->originalStyle === $value->style;
+    }
+
+    private function isReusableInteger(IntegerValue $value): bool
+    {
+        return $value->raw !== ''
+            && $value->originalValue === $value->value
+            && $value->originalBase === $value->base;
+    }
+
+    private function isReusableFloat(FloatValue $value): bool
+    {
+        return $value->raw !== '' && $value->originalValue === $value->value;
+    }
+
+    private function isReusableBool(BoolValue $value): bool
+    {
+        return $value->raw !== '' && $value->originalValue === $value->value;
+    }
+
+    private function isReusableOffsetDateTime(OffsetDateTime $value): bool
+    {
+        return $value->raw !== '' && $value->originalComparable === $value->value->format('Y-m-d\TH:i:s.uP');
+    }
+
+    private function isReusableLocalDateTime(LocalDateTime $value): bool
+    {
+        return $value->raw !== '' && $value->originalValue === $value->value;
+    }
+
+    private function isReusableLocalDate(LocalDate $value): bool
+    {
+        return $value->raw !== '' && $value->originalValue === $value->value;
+    }
+
+    private function isReusableLocalTime(LocalTime $value): bool
+    {
+        return $value->raw !== '' && $value->originalValue === $value->value;
+    }
+
+    private function isReusableArray(ArrayValue $value): bool
+    {
+        if (
+            $value->raw === ''
+            || $this->arrayHasSyntheticItems($value)
+            || $this->collectionShapeChanged($value->originalItemCount, count($value->items))
+        ) {
+            return false;
+        }
+
+        foreach ($value->items as $item) {
+            if (!$this->isReusableValue($item)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function isReusableInlineTable(InlineTable $value): bool
+    {
+        if (
+            $value->raw === ''
+            || $this->inlineTableHasSyntheticItems($value)
+            || $this->collectionShapeChanged($value->originalItemCount, count($value->items))
+        ) {
+            return false;
+        }
+
+        foreach ($value->items as $item) {
+            if (!$this->isReusableKeyValue($item)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function collectionShapeChanged(?int $originalItemCount, int $currentItemCount): bool

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace PhpCollective\Toml\Test\Encoder;
 
 use DateTimeImmutable;
+use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\Encoder;
 use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Exception\EncodeException;
+use PhpCollective\Toml\Toml;
 use PhpCollective\Toml\Value\LocalDate;
 use PhpCollective\Toml\Value\LocalDateTime;
 use PhpCollective\Toml\Value\LocalTime;
@@ -238,5 +240,26 @@ final class EncoderTest extends TestCase
         $this->assertStringContainsString('date = 2024-03-15', $result);
         $this->assertStringContainsString('time = 10:30:45', $result);
         $this->assertStringContainsString('timestamp = 2024-03-15T10:30:45', $result);
+    }
+
+    public function testEncodeDocumentDefaultsToNormalizedOutput(): void
+    {
+        $document = Toml::parse("count   =   1\n", true);
+
+        $result = Toml::encodeDocument($document);
+
+        $this->assertSame('count = 1', $result);
+    }
+
+    public function testEncodeDocumentCanUseSourceAwareFormatting(): void
+    {
+        $document = Toml::parse("count   =   1\n", true);
+
+        $result = Toml::encodeDocument(
+            $document,
+            new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
+        );
+
+        $this->assertSame('count   =   1' . "\n", $result);
     }
 }

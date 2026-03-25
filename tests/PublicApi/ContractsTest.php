@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace PhpCollective\Toml\Test\PublicApi;
 
 use PhpCollective\Toml\Ast\Document;
+use PhpCollective\Toml\Encoder\DocumentFormattingMode;
+use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Exception\EncodeException;
 use PhpCollective\Toml\Exception\ParseException;
 use PhpCollective\Toml\Exception\TomlException;
@@ -74,5 +76,26 @@ final class ContractsTest extends TestCase
         $encoded = Toml::encodeDocument($document);
 
         $this->assertSame("title = \"Example\"\n\n[server]\nhost = \"localhost\"", $encoded);
+    }
+
+    public function testEncodeDocumentDefaultsToNormalizedOutputEvenWithTrivia(): void
+    {
+        $document = Toml::parse('title   =   "Example"' . "\n", true);
+
+        $encoded = Toml::encodeDocument($document);
+
+        $this->assertSame('title = "Example"', $encoded);
+    }
+
+    public function testEncodeDocumentCanOptIntoSourceAwareOutput(): void
+    {
+        $document = Toml::parse("title   =   \"Example\"\n", true);
+
+        $encoded = Toml::encodeDocument(
+            $document,
+            new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
+        );
+
+        $this->assertSame("title   =   \"Example\"\n", $encoded);
     }
 }

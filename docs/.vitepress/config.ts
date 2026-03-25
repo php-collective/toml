@@ -4,10 +4,10 @@ export default defineConfig({
   title: 'toml-php',
   description: 'A PHP parser and encoder for TOML 1.0/1.1',
 
-  base: '/toml-php/',
+  base: '/toml/',
 
   head: [
-    ['link', { rel: 'icon', href: '/toml-php/favicon.svg', type: 'image/svg+xml' }],
+    ['link', { rel: 'icon', href: '/toml/favicon.svg', type: 'image/svg+xml' }],
   ],
 
   themeConfig: {

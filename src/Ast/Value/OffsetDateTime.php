@@ -13,8 +13,10 @@ final class OffsetDateTime extends AbstractValue
         public DateTimeImmutable $value,
         public string $raw,
         Span $span,
+        public ?string $originalComparable = null,
     ) {
         parent::__construct($span);
+        $this->originalComparable ??= $value->format('Y-m-d\TH:i:s.uP');
     }
 
     public function getValue(): DateTimeImmutable

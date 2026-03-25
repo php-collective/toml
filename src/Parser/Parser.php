@@ -46,6 +46,8 @@ final class Parser
 
     private bool $preserveTrivia;
 
+    private string $input = '';
+
     public function __construct(bool $preserveTrivia = false)
     {
         $this->preserveTrivia = $preserveTrivia;
@@ -53,6 +55,7 @@ final class Parser
 
     public function parse(string $input): Document
     {
+        $this->input = $input;
         $lexer = new Lexer($input);
         $this->tokens = iterator_to_array($lexer->tokenize());
         $this->pos = 0;
@@ -151,7 +154,9 @@ final class Parser
 
         $end = $this->previous()->span;
 
-        return new Table($key, $isArrayTable, $start->merge($end));
+        $span = $start->merge($end);
+
+        return new Table($key, $isArrayTable, $span, $this->slice($span));
     }
 
     private function parseKeyValue(): ?KeyValue
@@ -184,7 +189,9 @@ final class Parser
             return null;
         }
 
-        return new KeyValue($key, $value, $start->merge($value->getSpan()));
+        $span = $start->merge($value->getSpan());
+
+        return new KeyValue($key, $value, $span, $this->slice($span), $this->slicePrefixTo($span, $value->getSpan()));
     }
 
     private function parseKey(): ?Key
@@ -220,7 +227,9 @@ final class Parser
 
         $end = $this->previous()->span;
 
-        return new Key($parts, $styles, $start->merge($end));
+        $span = $start->merge($end);
+
+        return new Key($parts, $styles, $span, $this->slice($span));
     }
 
     private function parseValue(): ?Value
@@ -261,7 +270,7 @@ final class Parser
             default => StringStyle::Basic,
         };
 
-        return new StringValue($token->parsed, $style, $token->span);
+        return new StringValue($token->parsed, $style, $token->span, $token->value);
     }
 
     private function parseIntegerValue(): IntegerValue
@@ -277,21 +286,21 @@ final class Parser
             $base = IntegerBase::Binary;
         }
 
-        return new IntegerValue($token->parsed, $base, $token->span);
+        return new IntegerValue($token->parsed, $base, $token->span, $token->value);
     }
 
     private function parseFloatValue(): FloatValue
     {
         $token = $this->advance();
 
-        return new FloatValue($token->parsed, $token->span);
+        return new FloatValue($token->parsed, $token->span, $token->value);
     }
 
     private function parseBoolValue(): BoolValue
     {
         $token = $this->advance();
 
-        return new BoolValue($token->parsed, $token->span);
+        return new BoolValue($token->parsed, $token->span, $token->value);
     }
 
     private function parseOffsetDateTime(): OffsetDateTime
@@ -305,21 +314,21 @@ final class Parser
     {
         $token = $this->advance();
 
-        return new LocalDateTime($token->value, $token->span);
+        return new LocalDateTime($token->value, $token->span, $token->value);
     }
 
     private function parseLocalDate(): LocalDate
     {
         $token = $this->advance();
 
-        return new LocalDate($token->value, $token->span);
+        return new LocalDate($token->value, $token->span, $token->value);
     }
 
     private function parseLocalTime(): LocalTime
     {
         $token = $this->advance();
 
-        return new LocalTime($token->value, $token->span);
+        return new LocalTime($token->value, $token->span, $token->value);
     }
 
     private function parseArray(): ArrayValue
@@ -381,8 +390,9 @@ final class Parser
         }
 
         $this->expect(TokenType::RightBracket);
+        $span = $start->merge($this->previous()->span);
 
-        return new ArrayValue($items, $start->merge($this->previous()->span), $openingTrivia, $closingTrivia, $hasTrailingComma, count($items));
+        return new ArrayValue($items, $span, $openingTrivia, $closingTrivia, $hasTrailingComma, count($items), $this->slice($span));
     }
 
     private function parseInlineTable(): InlineTable
@@ -445,8 +455,9 @@ final class Parser
         }
 
         $this->expect(TokenType::RightBrace);
+        $span = $start->merge($this->previous()->span);
 
-        return new InlineTable($items, $start->merge($this->previous()->span), $openingTrivia, $closingTrivia, count($items));
+        return new InlineTable($items, $span, $openingTrivia, $closingTrivia, count($items), $this->slice($span));
     }
 
     // Helper methods
@@ -603,6 +614,16 @@ final class Parser
         };
 
         return new Trivia($kind, $token->value, $token->span);
+    }
+
+    private function slice(Span $span): string
+    {
+        return substr($this->input, $span->start, $span->length());
+    }
+
+    private function slicePrefixTo(Span $container, Span $end): string
+    {
+        return substr($this->input, $container->start, $end->start - $container->start);
     }
 
     private function error(string $message, Span $span, ?string $hint = null): void

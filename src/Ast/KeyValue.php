@@ -13,6 +13,8 @@ final class KeyValue extends AbstractNode
         public Key $key,
         public Value $value,
         Span $span,
+        public string $raw = '',
+        public string $rawPrefix = '',
     ) {
         parent::__construct($span);
     }

@@ -191,18 +191,21 @@ path = "C:\\Users\\name"
 ## Re-encoding from AST
 
 ```php
-$document = Toml::parse($originalToml);
+$document = Toml::parse($originalToml, true);
 
 // Modify the AST...
 
-$toml = Toml::encodeDocument($document);
+$toml = Toml::encodeDocument(
+    $document,
+    new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
+);
 ```
 
 ::: warning
-`encodeDocument()` can preserve parsed comments, blank lines, some lexical styles, and collection-local layout when the document was created with `Toml::parse($input, true)`. It is still not a full lossless formatter.
+`encodeDocument()` defaults to normalized output. Use `DocumentFormattingMode::SourceAware` when you want minimal-diff, source-aware behavior for trivia-preserving ASTs.
 :::
 
-When you edit the AST, nodes without preserved trivia fall back to canonical local formatting. Inserted inline-table entries encode with single spaces, inserted items in multiline parsed arrays reuse inferred indentation when possible, and edited single-line collections normalize their local delimiter spacing when their shape changes or synthetic replacements are introduced. That fallback is local to the edited collection, so an outer multiline structure can still preserve its layout while a nested single-line collection normalizes.
+In `SourceAware` mode, unchanged parsed regions can round-trip losslessly and edited regions follow explicit local fallback rules. Nodes without preserved trivia fall back to canonical local formatting. Value-only edits can still preserve original key/value separator spacing, inserted inline-table entries encode with single spaces, inserted items in multiline parsed arrays reuse inferred indentation when possible, and edited single-line collections normalize their local delimiter spacing when their shape changes or synthetic replacements are introduced. That fallback is local to the edited collection, so an outer multiline structure can still preserve its layout while a nested single-line collection normalizes.
 
 ## Error Handling
 

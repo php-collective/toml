@@ -11,6 +11,8 @@ use PhpCollective\Toml\Ast\Value\ArrayValue;
 use PhpCollective\Toml\Ast\Value\InlineTable;
 use PhpCollective\Toml\Ast\Value\IntegerBase;
 use PhpCollective\Toml\Ast\Value\IntegerValue;
+use PhpCollective\Toml\Encoder\DocumentFormattingMode;
+use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Lexer\Span;
 use PhpCollective\Toml\Toml;
 use PHPUnit\Framework\TestCase;
@@ -32,7 +34,7 @@ TOML, true);
 
         $item->value->items[] = new IntegerValue(3, IntegerBase::Decimal, $this->span());
 
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame(<<<'TOML'
 values = [
@@ -57,7 +59,7 @@ TOML, $encoded);
             $this->span(),
         );
 
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame("point = { x = 1, y = 2 }\n", $encoded);
     }
@@ -72,7 +74,7 @@ TOML, $encoded);
 
         $item->value->items[] = new IntegerValue(3, IntegerBase::Decimal, $this->span());
 
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame("values = [1, 2, 3]\n", $encoded);
     }
@@ -91,7 +93,7 @@ TOML, $encoded);
             $this->span(),
         );
 
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame("point = { x = 1, y = 2, z = 3 }\n", $encoded);
     }
@@ -106,7 +108,7 @@ TOML, $encoded);
 
         array_splice($item->value->items, 1, 1);
 
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame("values = [1, 3]\n", $encoded);
     }
@@ -121,7 +123,7 @@ TOML, $encoded);
 
         array_splice($item->value->items, 1, 1);
 
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame("point = { x = 1, z = 3 }\n", $encoded);
     }
@@ -137,7 +139,7 @@ TOML, $encoded);
 
         $item->value->items[0]->value->items[1] = new IntegerValue(9, IntegerBase::Decimal, $this->span());
 
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame("point = { dims = [1, 9] }\n", $encoded);
     }
@@ -158,7 +160,7 @@ TOML, true);
 
         array_splice($item->value->items[0]->items[0]->value->items, 1, 1);
 
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame(<<<'TOML'
 items = [
@@ -187,7 +189,7 @@ TOML, true);
             $this->span(),
         );
 
-        $encoded = Toml::encodeDocument($doc);
+        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
         $this->assertSame(<<<'TOML'
 items = [

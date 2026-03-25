@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PhpCollective\Toml\Test\Conformance;
 
+use PhpCollective\Toml\Encoder\DocumentFormattingMode;
+use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Toml;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -46,7 +48,11 @@ final class FixtureCorpusTest extends TestCase
         $input = $this->readFixture($path);
         $document = Toml::parse($input, true);
 
-        $this->assertSame($input, Toml::encodeDocument($document), basename($path));
+        $this->assertSame(
+            $input,
+            Toml::encodeDocument($document, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware)),
+            basename($path),
+        );
     }
 
     /**

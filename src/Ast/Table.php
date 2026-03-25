@@ -17,7 +17,10 @@ final class Table extends AbstractNode
         public Key $key,
         public bool $isArrayTable,
         Span $span,
+        public string $rawHeader = '',
+        public ?bool $originalIsArrayTable = null,
     ) {
         parent::__construct($span);
+        $this->originalIsArrayTable ??= $isArrayTable;
     }
 }
