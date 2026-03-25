@@ -63,10 +63,11 @@ Formatting is preserved with the following behavior during AST re-encoding:
 - Table ordering
 - Collection layout
 
-**Edited regions** use formatter-style canonical formatting:
+**Edited regions** use source-aware local fallback rules:
 - Multiline arrays preserve their indentation style
-- Single-line arrays canonicalize to `[1, 2, 3]`
-- Inline tables canonicalize to `{ key = value, key2 = value2 }`
+- Compatible key and value edits can preserve original separator spacing
+- Single-line arrays and inline tables preserve local delimiter style when the parsed collection exposes a consistent style
+- When no consistent local style is available, single-line arrays and inline tables fall back to canonical formatting
 
 ```toml
 # Original multiline array

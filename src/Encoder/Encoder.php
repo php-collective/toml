@@ -462,7 +462,7 @@ final class Encoder
                 $output .= ' ';
             }
 
-            if ($index < count($value->items) - 1) {
+            if ($index < count($value->items) - 1 || $value->hasTrailingComma) {
                 $output .= ',';
             }
         }
@@ -534,6 +534,10 @@ final class Encoder
             }
 
             $output .= $this->encodeAstKeyValue($item);
+        }
+
+        if ($value->hasTrailingComma) {
+            $output .= ',';
         }
 
         return $output . $style['closing'] . '}';

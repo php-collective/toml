@@ -13,6 +13,7 @@ final class InlineTable extends AbstractValue
      * @param \PhpCollective\Toml\Lexer\Span $span
      * @param array<\PhpCollective\Toml\Ast\Trivia> $openingTrivia
      * @param array<\PhpCollective\Toml\Ast\Trivia> $closingTrivia
+     * @param bool $hasTrailingComma
      * @param int|null $originalItemCount
      * @param string $raw
      * @param array{opening:string, afterComma:string, closing:string}|null $singleLineStyle
@@ -22,6 +23,7 @@ final class InlineTable extends AbstractValue
         Span $span,
         public array $openingTrivia = [],
         public array $closingTrivia = [],
+        public bool $hasTrailingComma = false,
         public ?int $originalItemCount = null,
         public string $raw = '',
         public ?array $singleLineStyle = null,

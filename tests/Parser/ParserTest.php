@@ -83,14 +83,15 @@ final class ParserTest extends TestCase
         $this->assertSame(['x' => 1, 'y' => 2], $kv->value->getValue());
     }
 
-    public function testInlineTableTrailingCommaProducesError(): void
+    public function testInlineTableTrailingCommaAllowed(): void
     {
         $parser = new Parser();
-        $parser->parse('t = { a = 1, }');
+        $doc = $parser->parse('t = { a = 1, }');
 
-        $errors = $parser->getErrors();
-        $this->assertNotEmpty($errors, 'Trailing comma in inline table should produce error');
-        $this->assertStringContainsString('Trailing comma', $errors[0]->message);
+        $this->assertEmpty($parser->getErrors());
+        $kv = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $kv);
+        $this->assertSame(['a' => 1], $kv->value->getValue());
     }
 
     public function testArrayTrailingCommaAllowed(): void

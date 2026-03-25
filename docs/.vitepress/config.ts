@@ -21,7 +21,6 @@ export default defineConfig({
         text: 'Links',
         items: [
           { text: 'TOML Spec', link: 'https://toml.io/' },
-          { text: 'Changelog', link: 'https://github.com/php-collective/toml/releases' },
           { text: 'Packagist', link: 'https://packagist.org/packages/php-collective/toml' },
           { text: 'Issues', link: 'https://github.com/php-collective/toml/issues' },
         ],
@@ -65,6 +64,7 @@ export default defineConfig({
             { text: 'Architecture', link: '/reference/architecture' },
             { text: 'Compatibility', link: '/reference/compatibility' },
             { text: 'Support Matrix', link: '/reference/support-matrix' },
+            { text: 'Comparison', link: '/reference/comparison' },
             { text: 'Limitations', link: '/reference/limitations' },
           ],
         },

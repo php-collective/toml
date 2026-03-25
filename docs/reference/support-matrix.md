@@ -54,11 +54,11 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 | Arrays | Supported | |
 | Multiline arrays | Supported | |
 | Array trailing commas | Supported | |
-| Inline tables | Supported | Single-line inline tables |
+| Inline tables | Supported | Single-line and multiline |
 | Nested inline tables | Supported | |
 | Dotted keys inside inline tables | Supported | |
-| Inline table trailing commas | Supported | Rejected per current parser behavior |
-| Multiline inline tables | Not Yet | Current parser rejects them |
+| Inline table trailing commas | Supported | TOML 1.1 |
+| Multiline inline tables | Supported | TOML 1.1 |
 
 ## Encoding
 
@@ -104,24 +104,29 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 ## Known Gaps
 
 - The decoder supports more TOML temporal forms than the encoder can emit.
-- Multiline inline tables are not currently supported.
-- `encodeDocument()` still does not preserve all original formatting details.
+- Numeric bare keys (e.g., `1 = "value"`) are not currently supported.
 - AST editing falls back to canonical local formatting when new nodes do not carry trivia or when single-line collection shape changes do not expose a consistent delimiter style to preserve.
 - Fallback behavior is local rather than globally lossless: nested edited collections may normalize while outer layout stays preserved.
 - Small value-only edits can preserve original key/value separator spacing.
-- Edited-document fixture coverage includes value edits, multiline string edits, quoted and literal key edits, table and array-table header edits, dotted-key edits, style-changing key-segment edits, and nested collection mutations.
 - Inline table formatting options beyond key sorting and newline selection are not implemented.
 
-## Recommended Use Today
+## toml-test Compliance
 
-This library is a reasonable fit for:
+Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0 with TOML 1.1:
 
-- parsing and validating common TOML configuration files
-- collecting syntax and semantic errors for tooling
-- encoding standard PHP arrays into TOML
+| Test Type | Passed | Failed | Compliance |
+|-----------|--------|--------|------------|
+| Valid | 163 | 51 | 76% |
+| Invalid | 413 | 53 | 89% |
 
-It is not yet a strong fit for:
+Most failures are edge cases around numeric bare keys and some implicit table scenarios.
 
-- lossless TOML editing
-- partial comment-preserving rewrites
-- formatter-style round-trip transformations
+## Recommended Use
+
+This library is well suited for:
+
+- parsing and validating TOML configuration files
+- collecting syntax and semantic errors for IDE/tooling integration
+- encoding PHP arrays into TOML
+- round-trip editing with comment and formatting preservation
+- AST-based TOML analysis and transformation

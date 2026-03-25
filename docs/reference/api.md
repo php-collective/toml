@@ -8,7 +8,7 @@ The main entry point for all TOML operations.
 use PhpCollective\Toml\Toml;
 ```
 
-### decode
+### decode()
 
 ```php
 public static function decode(string $input): array
@@ -21,7 +21,7 @@ $config = Toml::decode('[server]\nhost = "localhost"');
 // ['server' => ['host' => 'localhost']]
 ```
 
-### decodeFile
+### decodeFile()
 
 ```php
 public static function decodeFile(string $path): array
@@ -33,7 +33,7 @@ Decodes a TOML file to a PHP array. Throws `ParseException` on parse error or un
 $config = Toml::decodeFile('/path/to/config.toml');
 ```
 
-### parse
+### parse()
 
 ```php
 public static function parse(string $input, bool $preserveTrivia = false): Document
@@ -50,7 +50,7 @@ foreach ($document->items as $item) {
 }
 ```
 
-### tryParse
+### tryParse()
 
 ```php
 public static function tryParse(string $input): ParseResult
@@ -69,7 +69,7 @@ if ($result->isValid()) {
 
 Use `tryParse()` when you need diagnostics and a partial AST instead of exception-driven control flow.
 
-### encode
+### encode()
 
 ```php
 public static function encode(array $data, ?EncoderOptions $options = null): string
@@ -82,7 +82,7 @@ $toml = Toml::encode(['key' => 'value']);
 // key = "value"
 ```
 
-### encodeDocument
+### encodeDocument()
 
 ```php
 public static function encodeDocument(Document $document, ?EncoderOptions $options = null): string
@@ -107,7 +107,7 @@ $toml = Toml::encodeDocument(
 
 Result object from `Toml::tryParse()`.
 
-### isValid
+### isValid()
 
 ```php
 public function isValid(): bool
@@ -115,7 +115,7 @@ public function isValid(): bool
 
 Returns `true` if parsing succeeded without errors.
 
-### getValue
+### getValue()
 
 ```php
 public function getValue(): ?array
@@ -123,7 +123,7 @@ public function getValue(): ?array
 
 Returns the parsed array, or `null` if parsing failed completely.
 
-### getDocument
+### getDocument()
 
 ```php
 public function getDocument(): ?Document
@@ -131,7 +131,7 @@ public function getDocument(): ?Document
 
 Returns the AST Document. May be available even with errors (partial parse).
 
-### getErrors
+### getErrors()
 
 ```php
 public function getErrors(): array
@@ -153,7 +153,7 @@ public readonly Span $span;         // Position information
 public readonly ?string $hint;      // Optional fix suggestion
 ```
 
-### format
+### format()
 
 ```php
 public function format(string $source): string
@@ -200,12 +200,14 @@ public function __construct(
     bool $sortKeys = false,
     string $newline = "\n",
     DocumentFormattingMode $documentFormatting = DocumentFormattingMode::Normalized,
+    bool $skipNulls = false,
 )
 ```
 
 - `$sortKeys`: Sort keys alphabetically in output
 - `$newline`: Newline sequence to use during encoding
 - `$documentFormatting`: `Normalized` or `SourceAware` for `encodeDocument()`
+- `$skipNulls`: Omit `null` values during `encode()` instead of throwing `EncodeException`
 
 ## DocumentFormattingMode
 
@@ -215,6 +217,10 @@ Controls how `encodeDocument()` emits AST documents.
   Produces normalized TOML output. This is the default.
 - `DocumentFormattingMode::SourceAware`
   Reuses preserved source formatting where possible and falls back locally for edited regions.
+
+### Null Handling
+
+By default, `encode()` throws `EncodeException` for `null` values. With `new EncoderOptions(skipNulls: true)`, `null` values are omitted from tables, arrays, and inline tables.
 
 ---
 

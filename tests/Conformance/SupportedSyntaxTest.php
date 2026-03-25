@@ -38,24 +38,46 @@ TOML);
         $this->assertSame(['values' => [1, 2]], $result);
     }
 
-    public function testRejectsInlineTableTrailingComma(): void
+    public function testParsesInlineTableTrailingComma(): void
     {
-        $result = Toml::tryParse("point = { x = 1, }\n");
+        $result = Toml::decode("point = { x = 1, }\n");
 
-        $this->assertFalse($result->isValid());
-        $this->assertSame('Trailing comma not allowed in inline table', $result->getErrors()[0]->message);
+        $this->assertSame(['point' => ['x' => 1]], $result);
     }
 
-    public function testRejectsMultilineInlineTable(): void
+    public function testParsesMultilineInlineTable(): void
     {
-        $result = Toml::tryParse(<<<'TOML'
+        $result = Toml::decode(<<<'TOML'
 point = {
   x = 1,
   y = 2
 }
 TOML);
 
-        $this->assertFalse($result->isValid());
-        $this->assertNotEmpty($result->getErrors());
+        $this->assertSame(['point' => ['x' => 1, 'y' => 2]], $result);
+    }
+
+    public function testParsesMultilineInlineTableWithTrailingComma(): void
+    {
+        $result = Toml::decode(<<<'TOML'
+point = {
+  x = 1,
+  y = 2,
+}
+TOML);
+
+        $this->assertSame(['point' => ['x' => 1, 'y' => 2]], $result);
+    }
+
+    public function testParsesMultilineInlineTableWithComments(): void
+    {
+        $result = Toml::decode(<<<'TOML'
+point = {
+  x = 1, # x coordinate
+  y = 2, # y coordinate
+}
+TOML);
+
+        $this->assertSame(['point' => ['x' => 1, 'y' => 2]], $result);
     }
 }

@@ -1,0 +1,167 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use PhpCollective\Toml\Ast\Document;
+use PhpCollective\Toml\Ast\KeyValue;
+use PhpCollective\Toml\Ast\Table;
+use PhpCollective\Toml\Ast\Value\ArrayValue;
+use PhpCollective\Toml\Ast\Value\BoolValue;
+use PhpCollective\Toml\Ast\Value\FloatValue;
+use PhpCollective\Toml\Ast\Value\InlineTable;
+use PhpCollective\Toml\Ast\Value\IntegerValue;
+use PhpCollective\Toml\Ast\Value\LocalDate;
+use PhpCollective\Toml\Ast\Value\LocalDateTime;
+use PhpCollective\Toml\Ast\Value\LocalTime;
+use PhpCollective\Toml\Ast\Value\OffsetDateTime;
+use PhpCollective\Toml\Ast\Value\StringValue;
+use PhpCollective\Toml\Ast\Value\Value;
+use PhpCollective\Toml\Toml;
+
+$input = stream_get_contents(STDIN);
+
+try {
+    $result = Toml::tryParse($input);
+    if (!$result->isValid()) {
+        fwrite(STDERR, $result->getErrors()[0]->message . "\n");
+        exit(1);
+    }
+
+    $output = convertDocument($result->getDocument());
+    echo json_encode($output, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+} catch (Throwable $e) {
+    fwrite(STDERR, $e->getMessage() . "\n");
+    exit(1);
+}
+
+function convertDocument(Document $doc): stdClass
+{
+    $result = new stdClass();
+
+    foreach ($doc->items as $item) {
+        if ($item instanceof KeyValue) {
+            setNestedValue($result, $item->key->parts, convertValue($item->value));
+        } elseif ($item instanceof Table) {
+            $path = $item->key->parts;
+            if ($item->isArrayTable) {
+                $arr = getNestedValue($result, $path) ?? [];
+                $tableData = new stdClass();
+                foreach ($item->items as $kv) {
+                    setNestedValue($tableData, $kv->key->parts, convertValue($kv->value));
+                }
+                $arr[] = $tableData;
+                setNestedValue($result, $path, $arr);
+            } else {
+                $existing = getNestedValue($result, $path);
+                $tableData = $existing instanceof stdClass ? $existing : new stdClass();
+                foreach ($item->items as $kv) {
+                    setNestedValue($tableData, $kv->key->parts, convertValue($kv->value));
+                }
+                setNestedValue($result, $path, $tableData);
+            }
+        }
+    }
+
+    return $result;
+}
+
+function convertValue(Value $value): mixed
+{
+    if ($value instanceof StringValue) {
+        return ['type' => 'string', 'value' => $value->value];
+    }
+
+    if ($value instanceof IntegerValue) {
+        return ['type' => 'integer', 'value' => (string)$value->value];
+    }
+
+    if ($value instanceof FloatValue) {
+        $v = $value->value;
+        if (is_nan($v)) {
+            return ['type' => 'float', 'value' => 'nan'];
+        }
+        if (is_infinite($v)) {
+            return ['type' => 'float', 'value' => $v > 0 ? 'inf' : '-inf'];
+        }
+        $str = (string)$v;
+        // Ensure float representation has decimal
+        if (strpos($str, '.') === false && strpos($str, 'E') === false && strpos($str, 'e') === false) {
+            $str .= '.0';
+        }
+        return ['type' => 'float', 'value' => $str];
+    }
+
+    if ($value instanceof BoolValue) {
+        return ['type' => 'bool', 'value' => $value->value ? 'true' : 'false'];
+    }
+
+    if ($value instanceof OffsetDateTime) {
+        return ['type' => 'datetime', 'value' => $value->value->format('Y-m-d\TH:i:s.u') . formatOffset($value->value)];
+    }
+
+    if ($value instanceof LocalDateTime) {
+        return ['type' => 'datetime-local', 'value' => $value->value];
+    }
+
+    if ($value instanceof LocalDate) {
+        return ['type' => 'date-local', 'value' => $value->value];
+    }
+
+    if ($value instanceof LocalTime) {
+        return ['type' => 'time-local', 'value' => $value->value];
+    }
+
+    if ($value instanceof ArrayValue) {
+        return array_map('convertValue', $value->items);
+    }
+
+    if ($value instanceof InlineTable) {
+        $result = new stdClass();
+        foreach ($value->items as $kv) {
+            setNestedValue($result, $kv->key->parts, convertValue($kv->value));
+        }
+        return $result;
+    }
+
+    throw new RuntimeException('Unknown value type: ' . get_class($value));
+}
+
+function formatOffset(DateTimeInterface $dt): string
+{
+    $offset = $dt->format('P');
+    if ($offset === '+00:00') {
+        return 'Z';
+    }
+    return $offset;
+}
+
+function setNestedValue(stdClass $obj, array $path, mixed $value): void
+{
+    $current = $obj;
+    $lastIndex = count($path) - 1;
+
+    for ($i = 0; $i < $lastIndex; $i++) {
+        $key = $path[$i];
+        if (!isset($current->$key)) {
+            $current->$key = new stdClass();
+        }
+        $current = $current->$key;
+    }
+
+    $current->{$path[$lastIndex]} = $value;
+}
+
+function getNestedValue(stdClass $obj, array $path): mixed
+{
+    $current = $obj;
+
+    foreach ($path as $key) {
+        if (!isset($current->$key)) {
+            return null;
+        }
+        $current = $current->$key;
+    }
+
+    return $current;
+}

@@ -93,8 +93,8 @@ use PhpCollective\Toml\Ast\Value\StringValue;
 // Encode to TOML
 $toml = Toml::encode($array);
 
-// With options
-$toml = Toml::encode($array, new EncoderOptions(sortKeys: true));
+// With options - e.g. omit nulls instead of throwing
+$toml = Toml::encode($array, new EncoderOptions(skipNulls: true));
 
 // encodeDocument() is normalized by default
 $document = Toml::parse($tomlString, true);
@@ -110,6 +110,7 @@ $toml = Toml::encodeDocument(
 ```
 
 `DocumentFormattingMode::SourceAware` is lossless for unchanged parsed regions and uses local fallback rules for edited ones.
+`skipNulls` lets `encode()` omit nulls instead of throwing.
 
 ## Error Handling
 

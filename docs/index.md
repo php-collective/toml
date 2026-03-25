@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: PHP Toml
-  text: PHP Parser for TOML
-  tagline: A modern PHP TOML parser and encoder with AST access and collected parse errors
+  text: TOML 1.0/1.1 Parser for PHP
+  tagline: A modern parser and encoder with AST access, trivia preservation, and error recovery
   image:
     src: /logo.svg
     alt: PHP Toml

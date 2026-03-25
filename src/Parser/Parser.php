@@ -440,13 +440,14 @@ final class Parser
         $this->advance(); // skip {
 
         $items = [];
-        $openingTrivia = $this->preserveTrivia ? $this->collectInlineTableTrivia() : [];
+        $openingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
         $closingTrivia = [];
+        $hasTrailingComma = false;
         $nextLeadingTrivia = $openingTrivia;
 
         while (!$this->check(TokenType::RightBrace) && !$this->isAtEnd()) {
             if (!$this->preserveTrivia) {
-                $this->skipWhitespace(); // Only whitespace allowed, not newlines
+                $this->skipTriviaInCollection();
             }
 
             if ($this->check(TokenType::RightBrace)) {
@@ -465,9 +466,9 @@ final class Parser
                 $items[] = $kv;
             }
 
-            $trailingTrivia = $this->preserveTrivia ? $this->collectInlineTableTrivia() : [];
+            $trailingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
             if (!$this->preserveTrivia) {
-                $this->skipWhitespace();
+                $this->skipTriviaInCollection();
             }
 
             if (!$this->check(TokenType::RightBrace)) {
@@ -478,15 +479,12 @@ final class Parser
                     $kv->setTrailingTrivia($trailingTrivia);
                 }
 
-                // Check for trailing comma - not allowed in inline tables
-                if ($this->preserveTrivia) {
-                    $nextLeadingTrivia = $this->collectInlineTableTrivia();
-                } else {
-                    $this->skipWhitespace();
-                }
+                $nextLeadingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
                 if ($this->check(TokenType::RightBrace)) {
-                    $this->error('Trailing comma not allowed in inline table', $this->current()->span);
+                    $hasTrailingComma = true;
                     $closingTrivia = $nextLeadingTrivia;
+
+                    break;
                 }
             } elseif ($kv !== null && $this->preserveTrivia) {
                 $kv->setTrailingTrivia($trailingTrivia);
@@ -501,6 +499,7 @@ final class Parser
             $span,
             $openingTrivia,
             $closingTrivia,
+            $hasTrailingComma,
             count($items),
             $this->slice($span),
             $this->inferSingleLineInlineTableStyle($items, $openingTrivia, $closingTrivia),
@@ -631,20 +630,6 @@ final class Parser
         $trivia = [];
 
         while ($this->check(TokenType::Whitespace) || $this->check(TokenType::Comment) || $this->check(TokenType::Newline)) {
-            $trivia[] = $this->toTrivia($this->advance());
-        }
-
-        return $trivia;
-    }
-
-    /**
-     * @return array<\PhpCollective\Toml\Ast\Trivia>
-     */
-    private function collectInlineTableTrivia(): array
-    {
-        $trivia = [];
-
-        while ($this->check(TokenType::Whitespace)) {
             $trivia[] = $this->toTrivia($this->advance());
         }
 

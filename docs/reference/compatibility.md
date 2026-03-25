@@ -51,4 +51,4 @@ The repository includes broad edited-document fixture coverage across value repl
 
 ## Upgrade Guidance
 
-When parser strictness changes, consult the project's changelog before rolling a release into downstream systems with existing TOML fixtures.
+When parser strictness changes, consult the project's release notes before rolling a release into downstream systems with existing TOML fixtures.
