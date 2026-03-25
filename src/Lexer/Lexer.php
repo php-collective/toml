@@ -293,9 +293,18 @@ final class Lexer
             $char = $this->input[$this->pos];
 
             if ($char === '\\') {
-                // Check for line-ending backslash
+                // Check for line-ending backslash (may have whitespace before newline)
                 $this->advance();
-                if ($this->pos < $this->length && ($this->input[$this->pos] === "\n" || $this->input[$this->pos] === "\r")) {
+
+                // Skip any horizontal whitespace after backslash
+                $tempPos = $this->pos;
+                while ($tempPos < $this->length && ($this->input[$tempPos] === ' ' || $this->input[$tempPos] === "\t")) {
+                    $tempPos++;
+                }
+
+                if ($tempPos < $this->length && ($this->input[$tempPos] === "\n" || $this->input[$tempPos] === "\r")) {
+                    // Line continuation: skip to next non-whitespace
+                    $this->pos = $tempPos;
                     $this->skipWhitespaceAndNewlines();
                 } else {
                     $this->pos--; // go back
@@ -504,14 +513,8 @@ final class Lexer
             return new Token(TokenType::Boolean, $value, false, $span);
         }
 
-        // Check for special floats (without sign)
-        if ($value === 'inf') {
-            return new Token(TokenType::Float, $value, INF, $span);
-        }
-        if ($value === 'nan') {
-            return new Token(TokenType::Float, $value, NAN, $span);
-        }
-
+        // nan, inf are valid bare keys AND special float values
+        // Return as BareKey - parser interprets as float in value position
         return new Token(TokenType::BareKey, $value, $value, $span);
     }
 
@@ -650,6 +653,11 @@ final class Lexer
     private function classifyNumber(string $value, Span $span): Token
     {
         if (!$this->isValidNumberLiteral($value)) {
+            // TOML 1.1: if it's not a valid number but is a valid bare key, return as BareKey
+            if (preg_match('/^[A-Za-z0-9_-]+$/', $value)) {
+                return new Token(TokenType::BareKey, $value, $value, $span);
+            }
+
             return new Token(TokenType::Invalid, $value, null, $span);
         }
 

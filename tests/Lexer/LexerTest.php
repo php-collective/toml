@@ -245,16 +245,25 @@ here'''";
 
     public function testSpecialFloats(): void
     {
-        $lexer = new Lexer('inf -inf nan');
+        // Unsigned inf/nan are bare keys (parser interprets as float in value position)
+        // Signed versions are Float tokens
+        $lexer = new Lexer('inf -inf nan +nan');
         $tokens = iterator_to_array($lexer->tokenize());
 
-        $this->assertSame(TokenType::Float, $tokens[0]->type);
-        $this->assertSame(INF, $tokens[0]->parsed);
+        // Unsigned inf is a bare key
+        $this->assertSame(TokenType::BareKey, $tokens[0]->type);
+        $this->assertSame('inf', $tokens[0]->value);
 
+        // Signed -inf is a float
         $this->assertSame(TokenType::Float, $tokens[2]->type);
         $this->assertSame(-INF, $tokens[2]->parsed);
 
-        $this->assertSame(TokenType::Float, $tokens[4]->type);
-        $this->assertTrue(is_nan($tokens[4]->parsed));
+        // Unsigned nan is a bare key
+        $this->assertSame(TokenType::BareKey, $tokens[4]->type);
+        $this->assertSame('nan', $tokens[4]->value);
+
+        // Signed +nan is a float
+        $this->assertSame(TokenType::Float, $tokens[6]->type);
+        $this->assertTrue(is_nan($tokens[6]->parsed));
     }
 }

@@ -20,6 +20,7 @@ export default defineConfig({
       {
         text: 'Links',
         items: [
+          { text: 'Sandbox', link: 'https://sandbox.dereuromark.de/sandbox/toml' },
           { text: 'TOML Spec', link: 'https://toml.io/' },
           { text: 'Packagist', link: 'https://packagist.org/packages/php-collective/toml' },
           { text: 'Issues', link: 'https://github.com/php-collective/toml/issues' },

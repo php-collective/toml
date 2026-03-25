@@ -165,7 +165,8 @@ TOML);
     public function testDecodeRejectsInvalidNumberLiteral(): void
     {
         $this->expectException(ParseException::class);
-        $this->expectExceptionMessage('Invalid token');
+        // 1__2 is not a valid number (double underscore), and not valid in value position
+        $this->expectExceptionMessage('Expected value');
 
         Toml::decode("n = 1__2\n");
     }

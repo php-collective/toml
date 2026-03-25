@@ -99,9 +99,15 @@ final class Parser
                     $doc->items[] = $table;
                     $currentTable = $table;
                 }
-            } elseif ($token->is(TokenType::BareKey, TokenType::BasicString, TokenType::LiteralString)) {
+            } elseif (
+                $token->is(TokenType::BareKey, TokenType::BasicString, TokenType::LiteralString) ||
+                $token->is(TokenType::Integer, TokenType::Float, TokenType::Boolean)
+            ) {
                 $kv = $this->parseKeyValue();
                 if ($kv !== null) {
+                    // Check that key-value is followed by newline, EOF, comment, or whitespace leading to those
+                    $this->checkKeyValueTerminator();
+
                     if ($this->preserveTrivia) {
                         $kv->setLeadingTrivia($leadingTrivia);
                         $kv->setTrailingTrivia($this->collectTrailingTrivia());
@@ -240,6 +246,11 @@ final class Parser
                 $parts[] = $token->parsed;
                 $styles[] = KeyStyle::Literal;
                 $this->advance();
+            } elseif ($token->is(TokenType::Integer) || $token->is(TokenType::Float) || $token->is(TokenType::Boolean)) {
+                // TOML 1.1: numbers and booleans are valid bare keys
+                $parts[] = $token->value;
+                $styles[] = KeyStyle::Bare;
+                $this->advance();
             } else {
                 $this->error('Expected key', $token->span);
 
@@ -266,6 +277,22 @@ final class Parser
     {
         $this->skipWhitespace();
         $token = $this->current();
+
+        // Handle special float keywords (nan, inf) as bare keys
+        if ($token->type === TokenType::BareKey) {
+            if ($token->value === 'nan') {
+                $this->advance();
+
+                return new FloatValue(NAN, $token->span, $token->value);
+            }
+            if ($token->value === 'inf') {
+                $this->advance();
+
+                return new FloatValue(INF, $token->span, $token->value);
+            }
+
+            return null;
+        }
 
         return match ($token->type) {
             TokenType::BasicString,
@@ -584,6 +611,40 @@ final class Parser
         while ($this->check(TokenType::Whitespace)) {
             $this->advance();
         }
+    }
+
+    /**
+     * Check that a key-value pair is properly terminated.
+     * After a value, we must see newline, EOF, comment, or whitespace followed by those.
+     */
+    private function checkKeyValueTerminator(): void
+    {
+        $token = $this->current();
+
+        // Direct valid terminators
+        if ($token->is(TokenType::Newline, TokenType::Eof, TokenType::Comment)) {
+            return;
+        }
+
+        // If whitespace, peek ahead to check what follows
+        if ($token->is(TokenType::Whitespace)) {
+            // Look ahead without advancing
+            $peekPos = $this->pos + 1;
+            while ($peekPos < count($this->tokens) && $this->tokens[$peekPos]->is(TokenType::Whitespace)) {
+                $peekPos++;
+            }
+            if ($peekPos < count($this->tokens)) {
+                $nextToken = $this->tokens[$peekPos];
+                if ($nextToken->is(TokenType::Newline, TokenType::Eof, TokenType::Comment)) {
+                    return;
+                }
+            } else {
+                // End of tokens
+                return;
+            }
+        }
+
+        $this->error('Expected newline or end of input after value', $token->span);
     }
 
     private function skipTriviaInCollection(): void

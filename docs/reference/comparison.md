@@ -83,29 +83,9 @@ A comparison of PHP TOML libraries as of March 2025.
 | Trivia preservation | ✅ Comments + whitespace | Rare in PHP ecosystem |
 | Source-aware encoding | ✅ Preserves formatting | Unique feature |
 | Zero dependencies | ✅ Pure PHP | Common |
-| toml-test compliance | 76% valid / 89% invalid | PetalBranch claims higher |
+| toml-test compliance | 88% valid / 89% invalid | PetalBranch claims higher |
 
 **Unique strengths:**
 - Only library with error recovery for IDE/tooling workflows
 - Source-aware encoding preserves original formatting in unchanged regions
 - Balanced PHP version support (8.2+) with modern TOML 1.1 features
-
-## Choosing a Library
-
-**Choose php-collective/toml when you need:**
-- TOML 1.1 features with PHP 8.2 compatibility
-- Error recovery for IDE/tooling integration
-- AST access with comment preservation
-- Source-aware round-trip editing
-
-**Choose PetalBranch/toml when you need:**
-- Maximum TOML 1.1 compliance
-- PHP 8.3+ is acceptable
-
-**Choose internal/toml when you need:**
-- Stable TOML 1.0 support
-- PHP 8.1 compatibility
-
-**Choose vanodevium/toml when you need:**
-- Simple decode/encode API
-- No AST or comment preservation needed

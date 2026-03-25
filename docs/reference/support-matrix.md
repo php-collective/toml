@@ -104,7 +104,6 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 ## Known Gaps
 
 - The decoder supports more TOML temporal forms than the encoder can emit.
-- Numeric bare keys (e.g., `1 = "value"`) are not currently supported.
 - AST editing falls back to canonical local formatting when new nodes do not carry trivia or when single-line collection shape changes do not expose a consistent delimiter style to preserve.
 - Fallback behavior is local rather than globally lossless: nested edited collections may normalize while outer layout stays preserved.
 - Small value-only edits can preserve original key/value separator spacing.
@@ -116,10 +115,10 @@ Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0 with T
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
-| Valid | 163 | 51 | 76% |
-| Invalid | 413 | 53 | 89% |
+| Valid | 189 | 25 | 88% |
+| Invalid | 415 | 51 | 89% |
 
-Most failures are edge cases around numeric bare keys and some implicit table scenarios.
+Most failures are edge cases around implicit table scenarios and control character validation.
 
 ## Recommended Use
 
