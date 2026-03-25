@@ -7,6 +7,7 @@ namespace PhpCollective\Toml;
 use PhpCollective\Toml\Ast\Document;
 use PhpCollective\Toml\Encoder\Encoder;
 use PhpCollective\Toml\Encoder\EncoderOptions;
+use PhpCollective\Toml\Exception\EncodeException;
 use PhpCollective\Toml\Exception\ParseException;
 use PhpCollective\Toml\Parser\Parser;
 use PhpCollective\Toml\Parser\ParseResult;
@@ -102,5 +103,37 @@ final class Toml
         $encoder = new Encoder($options ?? new EncoderOptions());
 
         return $encoder->encodeDocument($doc);
+    }
+
+    /**
+     * Encode PHP array to TOML and write to file.
+     *
+     * @param string $path
+     * @param array<string, mixed> $data
+     * @param \PhpCollective\Toml\Encoder\EncoderOptions|null $options
+     *
+     * @throws \PhpCollective\Toml\Exception\EncodeException on encoding or write failure
+     */
+    public static function encodeFile(string $path, array $data, ?EncoderOptions $options = null): void
+    {
+        $toml = self::encode($data, $options);
+
+        if (@file_put_contents($path, $toml) === false) {
+            throw new EncodeException("Cannot write file: {$path}");
+        }
+    }
+
+    /**
+     * Encode AST document to TOML and write to file.
+     *
+     * @throws \PhpCollective\Toml\Exception\EncodeException on encoding or write failure
+     */
+    public static function encodeDocumentFile(string $path, Document $doc, ?EncoderOptions $options = null): void
+    {
+        $toml = self::encodeDocument($doc, $options);
+
+        if (@file_put_contents($path, $toml) === false) {
+            throw new EncodeException("Cannot write file: {$path}");
+        }
     }
 }

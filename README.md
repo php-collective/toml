@@ -90,8 +90,11 @@ use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Ast\Value\StringStyle;
 use PhpCollective\Toml\Ast\Value\StringValue;
 
-// Encode to TOML
+// Encode to TOML string
 $toml = Toml::encode($array);
+
+// Encode directly to file
+Toml::encodeFile('/path/to/config.toml', $array);
 
 // With options - e.g. omit nulls instead of throwing
 $toml = Toml::encode($array, new EncoderOptions(skipNulls: true));
@@ -99,6 +102,9 @@ $toml = Toml::encode($array, new EncoderOptions(skipNulls: true));
 // encodeDocument() is normalized by default
 $document = Toml::parse($tomlString, true);
 $toml = Toml::encodeDocument($document);
+
+// Encode document directly to file
+Toml::encodeDocumentFile('/path/to/output.toml', $document);
 
 // Opt into source-aware formatting for minimal-diff AST re-encoding
 $document = Toml::parse($tomlString, true);
