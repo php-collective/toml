@@ -630,10 +630,11 @@ final class Parser
         if ($token->is(TokenType::Whitespace)) {
             // Look ahead without advancing
             $peekPos = $this->pos + 1;
-            while ($peekPos < count($this->tokens) && $this->tokens[$peekPos]->is(TokenType::Whitespace)) {
+            $tokenCount = count($this->tokens);
+            while ($peekPos < $tokenCount && $this->tokens[$peekPos]->is(TokenType::Whitespace)) {
                 $peekPos++;
             }
-            if ($peekPos < count($this->tokens)) {
+            if ($peekPos < $tokenCount) {
                 $nextToken = $this->tokens[$peekPos];
                 if ($nextToken->is(TokenType::Newline, TokenType::Eof, TokenType::Comment)) {
                     return;
