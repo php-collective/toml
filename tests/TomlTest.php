@@ -216,6 +216,46 @@ TOML);
         Toml::decode("a = []\n[[a]]\nb = 1\n");
     }
 
+    public function testDecodeRejectsContentAfterTableHeader(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Expected newline or comment after table header');
+
+        // TOML spec: table headers must be on a line by themselves
+        Toml::decode("[table] key = \"value\"\n");
+    }
+
+    public function testDecodeRejectsContentAfterArrayTableHeader(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Expected newline or comment after table header');
+
+        Toml::decode("[[array]] key = \"value\"\n");
+    }
+
+    public function testDecodeAcceptsCommentAfterTableHeader(): void
+    {
+        // Comments after table headers are valid
+        $result = Toml::decode("[table] # this is a comment\nkey = \"value\"\n");
+
+        $this->assertSame([
+            'table' => [
+                'key' => 'value',
+            ],
+        ], $result);
+    }
+
+    public function testDecodeAcceptsWhitespaceBeforeCommentAfterTableHeader(): void
+    {
+        $result = Toml::decode("[table]   # comment with leading spaces\nkey = \"value\"\n");
+
+        $this->assertSame([
+            'table' => [
+                'key' => 'value',
+            ],
+        ], $result);
+    }
+
     public function testEncodeSupportsExplicitLocalTemporalValues(): void
     {
         $encoded = Toml::encode([
