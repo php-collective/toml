@@ -250,16 +250,26 @@ final class Parser
                 $parts[] = $token->parsed;
                 $styles[] = KeyStyle::Literal;
                 $this->advance();
-            } elseif ($token->is(TokenType::Integer) || $token->is(TokenType::Boolean)) {
-                // TOML 1.1: numbers and booleans are valid bare keys
+            } elseif ($token->is(TokenType::Integer)) {
+                // Integer-looking tokens can be bare keys only when they are unsigned decimal digits.
+                if (preg_match('/^\d[\d_]*$/', $token->value) !== 1) {
+                    $this->error('Expected key', $token->span);
+
+                    return null;
+                }
+                $parts[] = $token->value;
+                $styles[] = KeyStyle::Bare;
+                $this->advance();
+            } elseif ($token->is(TokenType::Boolean)) {
+                // TOML 1.1: booleans are valid bare keys
                 $parts[] = $token->value;
                 $styles[] = KeyStyle::Bare;
                 $this->advance();
             } elseif ($token->is(TokenType::Float)) {
                 // TOML 1.1: float-like tokens may be dotted keys (e.g., 1.2 = "a.b")
                 $value = $token->value;
-                // Check if it's a simple dotted key (no exponent, just digit.digit)
-                if (preg_match('/^[+-]?\d+\.\d+$/', str_replace('_', '', $value)) && !str_contains(strtolower($value), 'e')) {
+                // Check if it's a simple unsigned dotted key (no exponent, just digit.digit)
+                if (preg_match('/^\d+\.\d+$/', str_replace('_', '', $value)) === 1 && !str_contains(strtolower($value), 'e')) {
                     // Split into parts at the dot
                     $dotParts = explode('.', $value);
                     foreach ($dotParts as $part) {
@@ -270,8 +280,9 @@ final class Parser
                     // Remove the extra separator we added
                     array_pop($rawSeparators);
                 } else {
-                    $parts[] = $value;
-                    $styles[] = KeyStyle::Bare;
+                    $this->error('Expected key', $token->span);
+
+                    return null;
                 }
                 $this->advance();
             } elseif ($token->is(TokenType::LocalDate, TokenType::LocalTime, TokenType::LocalDateTime, TokenType::OffsetDateTime)) {

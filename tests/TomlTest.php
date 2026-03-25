@@ -180,6 +180,30 @@ TOML);
         Toml::decode("d = 2024-01-01T00:00:00+99:00\n");
     }
 
+    public function testDecodeRejectsSignedIntegerKey(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Expected key');
+
+        Toml::decode("+1 = 2\n");
+    }
+
+    public function testDecodeRejectsSignedFloatLikeKey(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Expected key');
+
+        Toml::decode("+1.2 = 3\n");
+    }
+
+    public function testDecodeRejectsBareCrInMultilineBasicStringContinuation(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Invalid token');
+
+        Toml::decode("x = \"\"\"a\\\rb\"\"\"\n");
+    }
+
     public function testTryParseReportsSemanticErrors(): void
     {
         $result = Toml::tryParse("a = 1\n[a]\nb = 2\n");
@@ -341,5 +365,30 @@ TOML);
 
         $doc = Toml::parse('key = "value"');
         Toml::encodeDocumentFile('/nonexistent/directory/file.toml', $doc);
+    }
+
+    public function testEncodeDocumentRejectsSemanticallyInvalidAstInNormalizedMode(): void
+    {
+        $doc = Toml::parse("a = 1\n");
+        $doc->items[] = clone $doc->items[0];
+
+        $this->expectException(EncodeException::class);
+        $this->expectExceptionMessage("Duplicate key 'a'");
+
+        Toml::encodeDocument($doc);
+    }
+
+    public function testEncodeDocumentRejectsSemanticallyInvalidAstInSourceAwareMode(): void
+    {
+        $doc = Toml::parse("a = 1\n", true);
+        $doc->items[] = clone $doc->items[0];
+
+        $this->expectException(EncodeException::class);
+        $this->expectExceptionMessage("Duplicate key 'a'");
+
+        Toml::encodeDocument(
+            $doc,
+            new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware),
+        );
     }
 }
