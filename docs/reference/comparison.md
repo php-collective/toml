@@ -46,7 +46,7 @@ Treat competitor compliance and preservation claims as vendor-reported unless yo
 
 ## Reproducible Benchmarks
 
-The repo includes a local comparison script at [`benchmarks/compare-libraries.php`](/media/mark/data/work/git/toml/benchmarks/compare-libraries.php).
+The repo includes a local comparison script at [`benchmarks/compare-libraries.php`](https://github.com/php-collective/toml/blob/master/benchmarks/compare-libraries.php).
 
 It builds a temporary Composer workspace, installs:
 
