@@ -101,7 +101,8 @@ final class Parser
                 }
             } elseif (
                 $token->is(TokenType::BareKey, TokenType::BasicString, TokenType::LiteralString) ||
-                $token->is(TokenType::Integer, TokenType::Float, TokenType::Boolean)
+                $token->is(TokenType::Integer, TokenType::Float, TokenType::Boolean) ||
+                $token->is(TokenType::LocalDate, TokenType::LocalTime, TokenType::LocalDateTime, TokenType::OffsetDateTime)
             ) {
                 $kv = $this->parseKeyValue();
                 if ($kv !== null) {
@@ -246,8 +247,33 @@ final class Parser
                 $parts[] = $token->parsed;
                 $styles[] = KeyStyle::Literal;
                 $this->advance();
-            } elseif ($token->is(TokenType::Integer) || $token->is(TokenType::Float) || $token->is(TokenType::Boolean)) {
+            } elseif ($token->is(TokenType::Integer) || $token->is(TokenType::Boolean)) {
                 // TOML 1.1: numbers and booleans are valid bare keys
+                $parts[] = $token->value;
+                $styles[] = KeyStyle::Bare;
+                $this->advance();
+            } elseif ($token->is(TokenType::Float)) {
+                // TOML 1.1: float-like tokens may be dotted keys (e.g., 1.2 = "a.b")
+                $value = $token->value;
+                // Check if it's a simple dotted key (no exponent, just digit.digit)
+                if (preg_match('/^[+-]?\d+\.\d+$/', str_replace('_', '', $value)) && !str_contains(strtolower($value), 'e')) {
+                    // Split into parts at the dot
+                    $dotParts = explode('.', $value);
+                    foreach ($dotParts as $part) {
+                        $parts[] = $part;
+                        $styles[] = KeyStyle::Bare;
+                        $rawSeparators[] = '.';
+                    }
+                    // Remove the extra separator we added
+                    array_pop($rawSeparators);
+                } else {
+                    $parts[] = $value;
+                    $styles[] = KeyStyle::Bare;
+                }
+                $this->advance();
+            } elseif ($token->is(TokenType::LocalDate, TokenType::LocalTime, TokenType::LocalDateTime, TokenType::OffsetDateTime)) {
+                // Date/time-like tokens are valid bare keys in key position
+                // e.g., 2001-02-03 = 1 or 15:16:17 = 2
                 $parts[] = $token->value;
                 $styles[] = KeyStyle::Bare;
                 $this->advance();
@@ -416,12 +442,26 @@ final class Parser
             }
 
             $value = $this->parseValue();
-            if ($value !== null) {
-                if ($this->preserveTrivia) {
-                    $value->setLeadingTrivia($nextLeadingTrivia);
+            if ($value === null) {
+                // Check for invalid syntax like [1,,2] or [,] - expected a value
+                $token = $this->current();
+                if (!$this->check(TokenType::RightBracket)) {
+                    $this->error('Expected value in array', $token->span);
+                    // Skip the problematic token to recover
+                    if ($this->match(TokenType::Comma)) {
+                        continue;
+                    }
+
+                    break;
                 }
-                $items[] = $value;
+
+                break;
             }
+
+            if ($this->preserveTrivia) {
+                $value->setLeadingTrivia($nextLeadingTrivia);
+            }
+            $items[] = $value;
 
             $trailingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
             if (!$this->preserveTrivia) {
@@ -433,7 +473,7 @@ final class Parser
                     break;
                 }
 
-                if ($value !== null && $this->preserveTrivia) {
+                if ($this->preserveTrivia) {
                     $value->setTrailingTrivia($trailingTrivia);
                 }
 
@@ -444,7 +484,7 @@ final class Parser
 
                     break;
                 }
-            } elseif ($value !== null && $this->preserveTrivia) {
+            } elseif ($this->preserveTrivia) {
                 $value->setTrailingTrivia($trailingTrivia);
             }
         }

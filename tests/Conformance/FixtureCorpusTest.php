@@ -92,7 +92,7 @@ final class FixtureCorpusTest extends TestCase
      */
     private static function fixtureProvider(string $category): iterable
     {
-        $paths = glob(__DIR__ . '/../Fixtures/Conformance/' . $category . '/*.toml');
+        $paths = glob(__DIR__ . '/../fixtures/Conformance/' . $category . '/*.toml');
         if ($paths === false) {
             return;
         }
