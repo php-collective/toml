@@ -259,6 +259,14 @@ final class Normalizer
 
                 return $null;
             }
+            if ($kind === 'dotted') {
+                $this->errors[] = new ParseError(
+                    "Cannot define table '{$displayPath}' after it was implicitly created by dotted keys",
+                    $span,
+                );
+
+                return $null;
+            }
             // kind === 'implicit' is OK - we're explicitly defining a previously implicit table
         }
 
@@ -447,9 +455,24 @@ final class Normalizer
                 return;
             }
 
+            // Check if this intermediate path was explicitly defined as a table or array table
+            // If so, we cannot extend it with dotted keys
+            if (!$isInlineTableScope && isset($this->definedTables[$internalPath])) {
+                $kind = $this->definedTables[$internalPath]['kind'];
+                if ($kind === 'explicit' || $kind === 'array') {
+                    $this->errors[] = new ParseError(
+                        "Cannot add keys to explicitly defined table '{$displayPath}' via dotted keys",
+                        $span,
+                    );
+
+                    return;
+                }
+            }
+
             if (!array_key_exists($key, $current)) {
                 $current[$key] = [];
-                $definedTables[$internalPath] ??= ['kind' => 'implicit', 'span' => $span];
+                // Mark as 'dotted' - cannot be explicitly defined later
+                $definedTables[$internalPath] ??= ['kind' => 'dotted', 'span' => $span];
             } elseif (!is_array($current[$key])) {
                 $this->errors[] = new ParseError("Cannot redefine key '{$displayPath}' as a table", $span);
 
@@ -461,7 +484,8 @@ final class Normalizer
                 $internalPrefix[] = '#' . (string)$lastEntry;
                 $current = &$current[$key][$lastEntry];
             } else {
-                $definedTables[$internalPath] ??= ['kind' => 'implicit', 'span' => $span];
+                // Mark as 'dotted' - cannot be explicitly defined later
+                $definedTables[$internalPath] ??= ['kind' => 'dotted', 'span' => $span];
                 $current = &$current[$key];
             }
         }
