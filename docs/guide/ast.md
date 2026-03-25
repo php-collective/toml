@@ -245,6 +245,8 @@ $toml = Toml::encodeDocument(
 `encodeDocument()` normalizes by default. Use `DocumentFormattingMode::SourceAware` when you want preserved formatting for unchanged parsed regions and local fallback rules for edited ones.
 :::
 
+For the exact round-trip and editing guarantees, see [Compatibility](https://php-collective.github.io/toml/reference/compatibility).
+
 ## Use Cases
 
 ### Configuration Validation

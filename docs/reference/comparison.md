@@ -1,94 +1,48 @@
 # PHP TOML Library Comparison
 
-A comparison of PHP TOML libraries as of March 2025.
+This page gives a high-level ecosystem snapshot and documents the local benchmark harness used for spot checks.
 
-## Feature Comparison
+For exact current support, round-trip guarantees, and `toml-test` numbers for this library, use the [Support Matrix](https://php-collective.github.io/toml/reference/support-matrix) and [Compatibility](https://php-collective.github.io/toml/reference/compatibility) pages.
 
-| Feature | php-collective | PetalBranch | internal/toml | vanodevium |
-|---------|---------------|-------------|---------------|------------|
-| TOML 1.0 | ✅ | ✅ | ✅ | ✅ |
-| TOML 1.1 escapes (`\e`, `\xHH`) | ✅ | ✅ | ❌ | ❌ |
-| Multiline inline tables | ✅ | ✅ | ❌ | ❌ |
-| PHP version | 8.2+ | 8.3+ | 8.1+ | 8.x |
-| AST access | ✅ | ✅ | ✅ | ❌ |
-| Comment preservation | ✅ | ✅ | ✅ | ❌ |
-| Error recovery | ✅ | ? | ? | ❌ |
-| File loading | ✅ | ✅ | ✅ | ✅ |
+## Positioning
 
-## Library Details
+`php-collective/toml` is strongest when you need:
 
-### php-collective/toml (this library)
+- strict parsing and semantic validation
+- AST access
+- collected parse errors for tooling workflows
+- normalized encoding by default
+- source-aware encoding as explicit opt-in
 
-- **TOML Version**: 1.0 + 1.1 features
-- **PHP Version**: 8.2+
-- **License**: MIT
-- **Key Features**:
-  - Full AST with span information
-  - Trivia (comments, whitespace) preservation
-  - Error recovery for IDE/tooling integration
-  - Source-aware re-encoding
-  - Zero required dependencies
+It is not positioned as a full TOML formatter. In `DocumentFormattingMode::SourceAware`, the encoder aims for minimal diffs where the AST preserves enough local formatting evidence.
 
-### PetalBranch/toml
+## Quick Snapshot
 
-- **TOML Version**: 1.1.0 (latest)
-- **PHP Version**: 8.3+
-- **License**: Unknown
-- **Key Features**:
-  - Full TOML 1.1 support
-  - O(1) memory lexer
-  - PHPStan Level 9 compliance
-  - Claims 100%/99.5% toml-test compliance
+This is intentionally a coarse product-level snapshot, not a replacement for the [Support Matrix](https://php-collective.github.io/toml/reference/support-matrix).
 
-### internal/toml
+| Capability | php-collective | PetalBranch | internal/toml | devium | yosymfony |
+|-----------|----------------|-------------|---------------|--------|-----------|
+| Modern TOML focus | ✅ | ✅ | ✅ | ✅ | ❌ |
+| AST access | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Source-aware or format-preserving workflow | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Collected diagnostics/tooling focus | ✅ | ? | ❌ | ❌ | ❌ |
+| Normalized encode by default | ✅ | ❌ | ❌ | ❌ | ❌ |
 
-- **TOML Version**: 1.0.0
-- **PHP Version**: 8.1+
-- **License**: BSD-3-Clause
-- **Downloads**: ~48,000
-- **Key Features**:
-  - Format preservation
-  - JsonSerializable integration
-  - Round-trip support
+`?` means the public docs were not clear enough to state this confidently.
 
-### vanodevium/toml
+## Ecosystem Notes
 
-- **TOML Version**: 1.0.0
-- **PHP Version**: PHP 8.x
-- **License**: MIT
-- **Key Features**:
-  - Specialized DateTime classes
-  - Simple API (`toml_decode()`, `toml_encode()`)
-  - Listed on official TOML wiki
+This table keeps the more descriptive comparison:
 
-### yosymfony/toml (legacy)
+| Package | Publicly visible strengths | Main tradeoff relative to this library |
+|---------|----------------------------|----------------------------------------|
+| `php-collective/toml` | Strict validation, AST access, collected diagnostics, source-aware re-encoding | Source-aware editing is strong, but still not a full formatter |
+| `petalbranch/toml` | Strong TOML 1.1 positioning, lossless redump claims, stronger published compliance claims | Requires newer PHP and is more dumper-oriented than normalized-by-default |
+| `internal/toml` | Format-preserving and round-trip oriented API | Less tooling-oriented diagnostics publicly |
+| `devium/toml` | Simple encode/decode API and temporal helper types | No public AST/editing workflow |
+| `yosymfony/toml` | Mature legacy parser and builder API | Older TOML scope and legacy project status |
 
-- **TOML Version**: 0.4.0 (outdated)
-- **PHP Version**: 7.1+
-- **License**: MIT
-- **Stars**: 208 (most popular)
-- **Status**: Stale since 2018
-- **Key Features**:
-  - TomlBuilder fluent API
-  - PSR-2 compliant
-
-## Competitive Position
-
-| Capability | php-collective | vs Others |
-|------------|---------------|-----------|
-| TOML 1.1 support | ✅ Full | Only PetalBranch matches |
-| PHP 8.2 compatible | ✅ | PetalBranch requires 8.3+ |
-| Error recovery | ✅ Multiple errors | Most fail on first error |
-| AST access | ✅ Full spans | internal/toml, PetalBranch only |
-| Trivia preservation | ✅ Comments + whitespace | Rare in PHP ecosystem |
-| Source-aware encoding | ✅ Preserves formatting | Unique feature |
-| Zero dependencies | ✅ Pure PHP | Common |
-| toml-test compliance | 99.5% valid / 90.3% invalid | PetalBranch claims higher |
-
-**Unique strengths:**
-- Only library with error recovery for IDE/tooling workflows
-- Source-aware encoding preserves original formatting in unchanged regions
-- Balanced PHP version support (8.2+) with modern TOML 1.1 features
+Treat competitor compliance and preservation claims as vendor-reported unless you verify them independently.
 
 ## Reproducible Benchmarks
 
@@ -165,19 +119,11 @@ Latest local run on PHP `8.4.18`:
 - These are local microbenchmarks, not authoritative published performance claims.
 - Results depend on PHP version, CPU, extensions, and payload shape.
 - Older libraries may not support the same TOML surface as modern ones, so not every case is equally meaningful for every package.
+- The benchmark harness is best used for local regression checks and directional comparisons, not marketing claims.
 
-## toml-test Compliance
+## Compliance Note
 
-Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0:
-
-| Capability | php-collective | PetalBranch |
-|------------|---------------|-------------|
-| TOML 1.1 valid tests | 99.5% (213/214) | Claims 100% |
-| TOML 1.1 invalid tests | 90.3% (421/466) | Claims 99.5% |
-| TOML 1.0 valid tests | 99.5% (204/205) | - |
-| TOML 1.0 invalid tests | 89.0% (421/473) | - |
-
-The single valid test failure is due to a PHP limitation with null byte property names. Invalid test "failures" are mostly TOML 1.0 strict tests that TOML 1.1 relaxes (multiline inline tables, trailing commas, hex escapes).
+Exact `toml-test` results for `php-collective/toml` live in the [Support Matrix](https://php-collective.github.io/toml/reference/support-matrix). Keeping the precise numbers there avoids repeating compliance tables across multiple pages.
 
 ## Interpretation
 
