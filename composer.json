@@ -52,5 +52,8 @@
             "dealerdirect/phpcodesniffer-composer-installer": true
         }
     },
-    "minimum-stability": "stable"
+    "minimum-stability": "stable",
+    "bin": [
+        "bin/toml-validate"
+    ]
 }
