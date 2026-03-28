@@ -93,7 +93,7 @@ The default API behavior is TOML 1.1-compatible. Strict TOML 1.0 parsing/decodin
 | Trivia preservation on document items and table entries | Partial | Available through `Toml::parse($input, true)` for leading/trailing trivia on parsed items |
 | Trivia preservation inside parsed arrays and inline tables | Partial | Collection-local item spacing and comments are preserved where represented in the AST |
 | Comment preservation on re-encode | Partial | Preserved for parsed document items, table entries, and collection items when trivia is available |
-| Formatting preservation on re-encode | Partial | Available in `DocumentFormattingMode::SourceAware` for trivia-preserving ASTs |
+| Formatting preservation on re-encode | Partial | Available in `DocumentFormattingMode::SourceAware` for trivia-preserving ASTs, including local spacing preservation for common single-line collection edits |
 | `encodeDocument()` round-trip fidelity | Partial | Normalized by default; source-aware mode is lossless for unchanged parsed regions, while edited regions preserve local style when inferable and otherwise canonicalize locally |
 
 ## Tooling and Errors
