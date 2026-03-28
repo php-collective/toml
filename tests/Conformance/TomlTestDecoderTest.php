@@ -39,6 +39,28 @@ final class TomlTestDecoderTest extends TestCase
         );
     }
 
+    public function testTomlDecoderSupportsStrictToml10Mode(): void
+    {
+        [$exitCode, $stdout, $stderr] = $this->runDecoderWithStatus("time = 07:32\n", [
+            'TOML_VERSION' => '1.0',
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('', $stdout);
+        $this->assertStringContainsString('Invalid token', trim((string)$stderr));
+    }
+
+    public function testTomlDecoderRejectsToml11InlineTableSyntaxInStrictToml10Mode(): void
+    {
+        [$exitCode, $stdout, $stderr] = $this->runDecoderWithStatus('point = { x = 1, }', [
+            'TOML_VERSION' => '1.0',
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('', $stdout);
+        $this->assertStringContainsString('Inline table trailing commas require TOML 1.1', trim((string)$stderr));
+    }
+
     /**
      * @return iterable<string, array{string}>
      */
@@ -59,6 +81,22 @@ final class TomlTestDecoderTest extends TestCase
 
     private function runDecoder(string $input): string
     {
+        [$exitCode, $stdout, $stderr] = $this->runDecoderWithStatus($input);
+
+        $this->assertSame(0, $exitCode, trim($stderr));
+        $this->assertNotFalse($stdout);
+
+        return $stdout;
+    }
+
+    /**
+     * @param string $input
+     * @param array<string, string> $env
+     *
+     * @return array{int, string, string}
+     */
+    private function runDecoderWithStatus(string $input, array $env = []): array
+    {
         $command = [PHP_BINARY, __DIR__ . '/../../bin/toml-decoder'];
         $descriptorSpec = [
             0 => ['pipe', 'r'],
@@ -66,7 +104,7 @@ final class TomlTestDecoderTest extends TestCase
             2 => ['pipe', 'w'],
         ];
 
-        $process = proc_open($command, $descriptorSpec, $pipes);
+        $process = proc_open($command, $descriptorSpec, $pipes, null, $env);
         $this->assertIsResource($process);
 
         fwrite($pipes[0], $input);
@@ -78,10 +116,8 @@ final class TomlTestDecoderTest extends TestCase
         fclose($pipes[2]);
 
         $exitCode = proc_close($process);
-        $this->assertSame(0, $exitCode, trim((string)$stderr));
-        $this->assertNotFalse($stdout);
 
-        return $stdout;
+        return [$exitCode, (string)$stdout, (string)$stderr];
     }
 
     /**

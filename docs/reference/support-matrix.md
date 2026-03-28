@@ -129,11 +129,11 @@ Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0:
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
 | Valid | 410 | 0 | 100% |
-| Invalid | 464 | 9 | 98.1% |
+| Invalid | 473 | 0 | 100% |
 
-These results were measured against the library's `bin/toml-decoder` adapter for the `toml-test` tagged JSON format.
+These results were measured against the library's `bin/toml-decoder` adapter for the `toml-test` tagged JSON format. TOML 1.1 results use the default adapter mode; TOML 1.0 results use `TOML_VERSION=1.0` so the decoder runs in strict TOML 1.0 mode.
 
-The remaining TOML 1.0 invalid-test failures are strict 1.0 rejections for syntax that TOML 1.1 relaxes and this library intentionally accepts: multiline inline tables, inline-table trailing commas, `\xHH` byte escapes, and optional seconds in local times/datetimes.
+Strict TOML 1.0 mode closes the previously documented invalid-case gaps for syntax that TOML 1.1 relaxes: multiline inline tables, inline-table trailing commas, `\xHH` byte escapes, and optional seconds in local times/datetimes.
 
 ## Recommended Use
 
