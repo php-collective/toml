@@ -180,20 +180,22 @@ TOML);
         Toml::decode("d = 2024-01-01T00:00:00+99:00\n");
     }
 
-    public function testDecodeRejectsSignedIntegerKey(): void
+    public function testDecodeAcceptsSignedIntegerKey(): void
     {
-        $this->expectException(ParseException::class);
-        $this->expectExceptionMessage('Expected key');
+        $result = Toml::decode("+1 = 2\n");
 
-        Toml::decode("+1 = 2\n");
+        $this->assertSame([
+            '+1' => 2,
+        ], $result);
     }
 
-    public function testDecodeRejectsSignedFloatLikeKey(): void
+    public function testDecodeAcceptsSignedFloatLikeKey(): void
     {
-        $this->expectException(ParseException::class);
-        $this->expectExceptionMessage('Expected key');
+        $result = Toml::decode("+1.2 = 3\n");
 
-        Toml::decode("+1.2 = 3\n");
+        $this->assertSame([
+            '+1.2' => 3,
+        ], $result);
     }
 
     public function testDecodeRejectsBareCrInMultilineBasicStringContinuation(): void

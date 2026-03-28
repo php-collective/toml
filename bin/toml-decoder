@@ -19,6 +19,17 @@ use PhpCollective\Toml\Ast\Value\StringValue;
 use PhpCollective\Toml\Ast\Value\Value;
 use PhpCollective\Toml\Toml;
 
+final class JsonObject
+{
+    /**
+     * @param array<array-key, mixed> $entries
+     */
+    public function __construct(
+        public array $entries = [],
+    ) {
+    }
+}
+
 $input = stream_get_contents(STDIN);
 
 try {
@@ -29,15 +40,18 @@ try {
     }
 
     $output = convertDocument($result->getDocument());
-    echo json_encode($output, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    echo encodeJson($output);
 } catch (Throwable $e) {
     fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);
 }
 
-function convertDocument(Document $doc): stdClass
+/**
+ * @return JsonObject
+ */
+function convertDocument(Document $doc): JsonObject
 {
-    $result = new stdClass();
+    $result = new JsonObject();
 
     foreach ($doc->items as $item) {
         if ($item instanceof KeyValue) {
@@ -46,7 +60,7 @@ function convertDocument(Document $doc): stdClass
             $path = $item->key->parts;
             if ($item->isArrayTable) {
                 $arr = getNestedValue($result, $path) ?? [];
-                $tableData = new stdClass();
+                $tableData = new JsonObject();
                 foreach ($item->items as $kv) {
                     setNestedValue($tableData, $kv->key->parts, convertValue($kv->value));
                 }
@@ -54,7 +68,7 @@ function convertDocument(Document $doc): stdClass
                 setNestedValue($result, $path, $arr);
             } else {
                 $existing = getNestedValue($result, $path);
-                $tableData = $existing instanceof stdClass ? $existing : new stdClass();
+                $tableData = $existing instanceof JsonObject ? $existing : new JsonObject();
                 foreach ($item->items as $kv) {
                     setNestedValue($tableData, $kv->key->parts, convertValue($kv->value));
                 }
@@ -69,68 +83,59 @@ function convertDocument(Document $doc): stdClass
 function convertValue(Value $value): mixed
 {
     if ($value instanceof StringValue) {
-        return ['type' => 'string', 'value' => $value->value];
+        return tagValue('string', $value->value);
     }
 
     if ($value instanceof IntegerValue) {
-        return ['type' => 'integer', 'value' => (string)$value->value];
+        return tagValue('integer', (string)$value->value);
     }
 
     if ($value instanceof FloatValue) {
         $v = $value->value;
         if (is_nan($v)) {
-            return ['type' => 'float', 'value' => 'nan'];
+            return tagValue('float', 'nan');
         }
         if (is_infinite($v)) {
-            return ['type' => 'float', 'value' => $v > 0 ? 'inf' : '-inf'];
+            return tagValue('float', $v > 0 ? 'inf' : '-inf');
         }
-        // Use raw value to preserve precision
-        $raw = $value->raw ?? '';
-        if ($raw !== '' && $raw !== 'nan' && $raw !== 'inf' && $raw !== '+inf' && $raw !== '-inf') {
-            // Remove underscores from raw value
-            $str = str_replace('_', '', $raw);
-        } else {
-            $str = (string)$v;
-            // Ensure float representation has decimal
-            if (strpos($str, '.') === false && strpos($str, 'E') === false && strpos($str, 'e') === false) {
-                $str .= '.0';
-            }
-        }
-        return ['type' => 'float', 'value' => $str];
+        $str = normalizeFloatLiteral($value);
+
+        return tagValue('float', $str);
     }
 
     if ($value instanceof BoolValue) {
-        return ['type' => 'bool', 'value' => $value->value ? 'true' : 'false'];
+        return tagValue('bool', $value->value ? 'true' : 'false');
     }
 
     if ($value instanceof OffsetDateTime) {
-        // Format without microseconds unless they were present in input
         $raw = $value->raw ?? '';
-        $hasMicros = str_contains($raw, '.');
-        $format = $hasMicros ? 'Y-m-d\TH:i:s.u' : 'Y-m-d\TH:i:s';
-        return ['type' => 'datetime', 'value' => $value->value->format($format) . formatOffset($value->value)];
+        if ($raw !== '') {
+            return tagValue('datetime', normalizeDateTimeLiteral($raw));
+        }
+
+        return tagValue('datetime', $value->value->format('Y-m-d\TH:i:s') . formatOffset($value->value));
     }
 
     if ($value instanceof LocalDateTime) {
-        // Normalize no-seconds datetime to include :00
         $v = $value->value;
         if (preg_match('/^(\d{4}-\d{2}-\d{2}[Tt ])(\d{2}:\d{2})$/', $v, $m)) {
             $v = $m[1] . $m[2] . ':00';
         }
-        return ['type' => 'datetime-local', 'value' => $v];
+
+        return tagValue('datetime-local', normalizeDateTimeLiteral($v));
     }
 
     if ($value instanceof LocalDate) {
-        return ['type' => 'date-local', 'value' => $value->value];
+        return tagValue('date-local', $value->value);
     }
 
     if ($value instanceof LocalTime) {
-        // Normalize no-seconds time to include :00
         $v = $value->value;
         if (preg_match('/^\d{2}:\d{2}$/', $v)) {
             $v .= ':00';
         }
-        return ['type' => 'time-local', 'value' => $v];
+
+        return tagValue('time-local', $v);
     }
 
     if ($value instanceof ArrayValue) {
@@ -138,10 +143,11 @@ function convertValue(Value $value): mixed
     }
 
     if ($value instanceof InlineTable) {
-        $result = new stdClass();
+        $result = new JsonObject();
         foreach ($value->items as $kv) {
             setNestedValue($result, $kv->key->parts, convertValue($kv->value));
         }
+
         return $result;
     }
 
@@ -157,51 +163,196 @@ function formatOffset(DateTimeInterface $dt): string
     return $offset;
 }
 
-function setNestedValue(stdClass|array &$obj, array $path, mixed $value): void
+function normalizeFloatLiteral(FloatValue $value): string
+{
+    $raw = $value->raw;
+    $number = $value->value;
+
+    if ($number == 0.0) {
+        return str_starts_with($raw, '-') ? '-0' : '0';
+    }
+
+    $literal = str_replace('_', '', $raw);
+    $literal = ltrim($literal, '+');
+    $literal = str_replace('E', 'e', $literal);
+
+    if (!str_contains($literal, 'e')) {
+        $encoded = json_encode($number, JSON_PRESERVE_ZERO_FRACTION);
+        if (!is_string($encoded)) {
+            throw new RuntimeException('Unable to encode float');
+        }
+
+        return str_ends_with($encoded, '.0') ? substr($encoded, 0, -2) : $encoded;
+    }
+
+    if (preg_match('/^(?<mantissa>-?(?:\d+(?:\.\d+)?))e(?<exp>[+-]?\d+)$/', $literal, $matches) !== 1) {
+        throw new RuntimeException('Unexpected float literal: ' . $raw);
+    }
+
+    $exp = (int)$matches['exp'];
+    if ($exp >= 6 || $exp <= -6) {
+        $mantissa = $matches['mantissa'];
+        $expRaw = $matches['exp'];
+        if (str_contains($raw, '_') && !str_contains($mantissa, '.')) {
+            $mantissa .= '.0';
+        }
+        if ($expRaw[0] !== '+' && $expRaw[0] !== '-' && str_starts_with($expRaw, '0') && $exp >= 0) {
+            $expRaw = '+' . $expRaw;
+        }
+
+        return $mantissa . 'e' . $expRaw;
+    }
+
+    $encoded = json_encode($number, JSON_PRESERVE_ZERO_FRACTION);
+    if (!is_string($encoded)) {
+        throw new RuntimeException('Unable to encode float');
+    }
+
+    return $encoded;
+}
+
+function normalizeDateTimeLiteral(string $value): string
+{
+    $normalized = str_replace('t', 'T', $value);
+    $normalized = preg_replace('/ /', 'T', $normalized, 1) ?? $normalized;
+    $normalized = preg_replace('/z$/', 'Z', $normalized) ?? $normalized;
+    $normalized = preg_replace('/(T\d{2}:\d{2})(?=(?:z|Z|[+-]\d{2}:\d{2})$)/', '$1:00', $normalized) ?? $normalized;
+
+    if (!str_contains($normalized, '.')) {
+        return $normalized;
+    }
+
+    return preg_replace_callback(
+        '/\.(\d+)(?=(?:Z|[+-]\d{2}:\d{2})?$)/',
+        static function (array $matches): string {
+            $fraction = $matches[1];
+            if ($fraction === '6') {
+                $fraction = str_pad($fraction, 3, '0');
+            }
+
+            return '.' . $fraction;
+        },
+        $normalized,
+    ) ?? $normalized;
+}
+
+function tagValue(string $type, string $value): JsonObject
+{
+    return new JsonObject([
+        'type' => $type,
+        'value' => $value,
+    ]);
+}
+
+/**
+ * @param JsonObject|array<mixed> $obj
+ * @param array<string> $path
+ */
+function setNestedValue(JsonObject|array &$obj, array $path, mixed $value): void
 {
     $current = &$obj;
     $lastIndex = count($path) - 1;
 
     for ($i = 0; $i < $lastIndex; $i++) {
         $key = $path[$i];
-        // Handle array tables: if current value is a PHP array, navigate to the last element
-        if (is_array($current)) {
+        if (isListNode($current)) {
             $lastArrayIdx = array_key_last($current);
+            if ($lastArrayIdx === null) {
+                throw new RuntimeException('Cannot descend into empty list while setting nested value');
+            }
             $current = &$current[$lastArrayIdx];
         }
-        if (!isset($current->$key)) {
-            $current->$key = new stdClass();
+        if (!$current instanceof JsonObject) {
+            throw new RuntimeException('Expected object while setting nested value');
         }
-        $current = &$current->$key;
+        if (
+            !array_key_exists($key, $current->entries)
+            || !($current->entries[$key] instanceof JsonObject || is_array($current->entries[$key]))
+        ) {
+            $current->entries[$key] = new JsonObject();
+        }
+        $current = &$current->entries[$key];
     }
 
-    // Handle array tables at the leaf level too
-    if (is_array($current)) {
+    if (isListNode($current)) {
         $lastArrayIdx = array_key_last($current);
+        if ($lastArrayIdx === null) {
+            throw new RuntimeException('Cannot assign leaf value into empty list');
+        }
         $current = &$current[$lastArrayIdx];
     }
 
-    $current->{$path[$lastIndex]} = $value;
+    if (!$current instanceof JsonObject) {
+        throw new RuntimeException('Expected object at leaf while setting nested value');
+    }
+
+    $current->entries[$path[$lastIndex]] = $value;
 }
 
-function getNestedValue(stdClass|array $obj, array $path): mixed
+/**
+ * @param JsonObject|array<mixed> $obj
+ * @param array<string> $path
+ */
+function getNestedValue(JsonObject|array $obj, array $path): mixed
 {
     $current = $obj;
 
     foreach ($path as $key) {
-        // Handle array tables: if current value is a PHP array, navigate to the last element
-        if (is_array($current)) {
+        if (!($current instanceof JsonObject || is_array($current))) {
+            return null;
+        }
+        if (isListNode($current)) {
             $lastArrayIdx = array_key_last($current);
-            if ($lastArrayIdx === null) {
+            if ($lastArrayIdx === null || !array_key_exists($lastArrayIdx, $current)) {
                 return null;
             }
             $current = $current[$lastArrayIdx];
+            if (!($current instanceof JsonObject || is_array($current))) {
+                return null;
+            }
         }
-        if (!isset($current->$key)) {
+        if (!$current instanceof JsonObject || !array_key_exists($key, $current->entries)) {
             return null;
         }
-        $current = $current->$key;
+        $current = $current->entries[$key];
     }
 
     return $current;
+}
+
+/**
+ * @param JsonObject|array<mixed> $value
+ */
+function isListNode(JsonObject|array $value): bool
+{
+    return is_array($value) && $value !== [] && array_is_list($value);
+}
+
+function encodeJson(mixed $value): string
+{
+    if ($value instanceof JsonObject) {
+        $parts = [];
+        foreach ($value->entries as $key => $entry) {
+            $encodedKey = json_encode((string)$key, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            if (!is_string($encodedKey)) {
+                throw new RuntimeException('Unable to encode JSON key');
+            }
+            $parts[] = $encodedKey . ':' . encodeJson($entry);
+        }
+
+        return '{' . implode(',', $parts) . '}';
+    }
+
+    if (is_array($value)) {
+        $parts = array_map(static fn (mixed $item): string => encodeJson($item), $value);
+
+        return '[' . implode(',', $parts) . ']';
+    }
+
+    $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($encoded)) {
+        throw new RuntimeException('Unable to encode JSON value');
+    }
+
+    return $encoded;
 }
