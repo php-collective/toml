@@ -9,6 +9,8 @@ A complete reference for TOML syntax supported by PHP Toml.
 key = "value"  # This is an inline comment
 ```
 
+Comments may contain any valid Unicode except newline terminators and unescaped control characters.
+
 ## Keys
 
 ### Bare Keys
@@ -57,6 +59,8 @@ str = "I'm a string"
 str_with_quote = "She said \"hello\""
 ```
 
+Basic strings reject raw control characters other than tab.
+
 **Escape sequences:**
 
 | Sequence | Character |
@@ -99,6 +103,8 @@ No escaping - what you see is what you get:
 path = 'C:\Users\nodejs\templates'
 regex = '<\i\c*\s*>'
 ```
+
+Literal strings also reject raw control characters other than tab.
 
 ### Multi-line Literal Strings
 
