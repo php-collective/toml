@@ -289,6 +289,22 @@ TOML);
         Toml::decode("a = [{ b = 1 }]\n[a.c]\nfoo = 1\n");
     }
 
+    public function testDecodeRejectsOpeningTableWithinEmptyStaticArray(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage("Cannot extend values in static array 'a'");
+
+        Toml::decode("a = []\n[a.b]\nfoo = 1\n");
+    }
+
+    public function testDecodeRejectsOpeningArrayTableWithinEmptyStaticArray(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage("Cannot extend values in static array 'a'");
+
+        Toml::decode("a = []\n[[a.b]]\n");
+    }
+
     public function testDecodeRejectsExtendingInlineTableWithinInlineTable(): void
     {
         $this->expectException(ParseException::class);
