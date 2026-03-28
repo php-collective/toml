@@ -150,19 +150,6 @@ $a['self'] = &$a;  // Circular reference
 Toml::encode($a);  // Throws EncodeException
 ```
 
-## Control Characters
-
-The TOML spec forbids unescaped control characters (U+0000 to U+001F, except tab U+0009) in basic strings and comments. Currently, the parser accepts these characters without validation for performance reasons.
-
-```toml
-# Per TOML spec, this should be rejected:
-invalid = "hello^Aworld"  # ^A = 0x01
-
-# The parser currently accepts it (lenient behavior)
-```
-
-A future version may add strict control character validation.
-
 ## Maximum Nesting
 
 While there's no explicit limit, deeply nested structures may cause stack issues:
