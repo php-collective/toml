@@ -266,9 +266,19 @@ final class Normalizer
             }
 
             $internalPrefix[] = $key;
-            if ($current[$key] !== [] && array_is_list($current[$key])) {
-                // Check if this is a static array - cannot extend elements of static arrays
-                $internalPathId = $this->pathId($internalPrefix);
+            $internalPathId = $this->pathId($internalPrefix);
+            if ($current[$key] === []) {
+                if (isset($this->staticArrays[$internalPathId])) {
+                    $this->errors[] = new ParseError(
+                        "Cannot extend values in static array '{$displayPath}'",
+                        $span,
+                    );
+
+                    return $null;
+                }
+                $this->definedTables[$internalPathId] ??= ['kind' => 'implicit', 'span' => $span];
+                $current = &$current[$key];
+            } elseif (array_is_list($current[$key])) {
                 if (isset($this->staticArrays[$internalPathId])) {
                     $this->errors[] = new ParseError(
                         "Cannot extend values in static array '{$displayPath}'",
@@ -320,6 +330,15 @@ final class Normalizer
                 return $null;
             }
             // kind === 'implicit' is OK - we're explicitly defining a previously implicit table
+        }
+
+        if (isset($this->staticArrays[$internalPathString])) {
+            $this->errors[] = new ParseError(
+                "Cannot extend values in static array '{$displayPath}'",
+                $span,
+            );
+
+            return $null;
         }
 
         if (!array_key_exists($leafKey, $current)) {
@@ -392,9 +411,19 @@ final class Normalizer
             }
 
             $internalPrefix[] = $key;
-            if ($current[$key] !== [] && array_is_list($current[$key])) {
-                // Check if this is a static array - cannot extend elements of static arrays
-                $internalPathId = $this->pathId($internalPrefix);
+            $internalPathId = $this->pathId($internalPrefix);
+            if ($current[$key] === []) {
+                if (isset($this->staticArrays[$internalPathId])) {
+                    $this->errors[] = new ParseError(
+                        "Cannot extend values in static array '{$displayPath}'",
+                        $span,
+                    );
+
+                    return $null;
+                }
+                $this->definedTables[$internalPathId] ??= ['kind' => 'implicit', 'span' => $span];
+                $current = &$current[$key];
+            } elseif (array_is_list($current[$key])) {
                 if (isset($this->staticArrays[$internalPathId])) {
                     $this->errors[] = new ParseError(
                         "Cannot extend values in static array '{$displayPath}'",
@@ -418,6 +447,15 @@ final class Normalizer
 
         if (isset($this->definedKeys[$internalPathString])) {
             $this->errors[] = new ParseError("Cannot redefine key '{$displayPath}' as an array table", $span);
+
+            return $null;
+        }
+
+        if (isset($this->staticArrays[$internalPathString])) {
+            $this->errors[] = new ParseError(
+                "Cannot extend values in static array '{$displayPath}'",
+                $span,
+            );
 
             return $null;
         }
