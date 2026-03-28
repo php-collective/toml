@@ -13,6 +13,10 @@ final class TomlTestDecoderTest extends TestCase
     #[DataProvider('tomlTestFixtureProvider')]
     public function testTomlDecoderMatchesTaggedJsonFixtures(string $fixtureBase): void
     {
+        if (!is_dir('/tmp/toml-test/tests')) {
+            $this->markTestSkipped('toml-test corpus is not available in this environment.');
+        }
+
         $tomlPath = $fixtureBase . '.toml';
         $jsonPath = $fixtureBase . '.json';
 
