@@ -6,12 +6,13 @@ The main entry point for all TOML operations.
 
 ```php
 use PhpCollective\Toml\Toml;
+use PhpCollective\Toml\TomlVersion;
 ```
 
 ### decode()
 
 ```php
-public static function decode(string $input): array
+public static function decode(string $input, TomlVersion $version = TomlVersion::V11): array
 ```
 
 Decodes a TOML string to a PHP array. Throws `ParseException` on error.
@@ -19,12 +20,14 @@ Decodes a TOML string to a PHP array. Throws `ParseException` on error.
 ```php
 $config = Toml::decode('[server]\nhost = "localhost"');
 // ['server' => ['host' => 'localhost']]
+
+$strict = Toml::decode('time = 07:32:00', TomlVersion::V10);
 ```
 
 ### decodeFile()
 
 ```php
-public static function decodeFile(string $path): array
+public static function decodeFile(string $path, TomlVersion $version = TomlVersion::V11): array
 ```
 
 Decodes a TOML file to a PHP array. Throws `ParseException` on parse error or unreadable files.
@@ -36,12 +39,17 @@ $config = Toml::decodeFile('/path/to/config.toml');
 ### parse()
 
 ```php
-public static function parse(string $input, bool $preserveTrivia = false): Document
+public static function parse(
+    string $input,
+    bool $preserveTrivia = false,
+    TomlVersion $version = TomlVersion::V11,
+): Document
 ```
 
 Parses a TOML string to an AST `Document`.
 
 - `$preserveTrivia`: when `true`, attaches leading and trailing trivia to parsed document items and table entries
+- `$version`: opt into strict TOML 1.0 parsing rules with `TomlVersion::V10`
 
 ```php
 $document = Toml::parse($tomlString);
@@ -53,7 +61,7 @@ foreach ($document->items as $item) {
 ### tryParse()
 
 ```php
-public static function tryParse(string $input): ParseResult
+public static function tryParse(string $input, TomlVersion $version = TomlVersion::V11): ParseResult
 ```
 
 Parses a TOML string without throwing. Returns a `ParseResult` that may contain errors.
@@ -69,6 +77,8 @@ if ($result->isValid()) {
 
 Use `tryParse()` when you need diagnostics and a partial AST instead of exception-driven control flow.
 
+The default parser/decoder mode is TOML 1.1-compatible. Use `TomlVersion::V10` when you need strict TOML 1.0 rejection of 1.1-only features such as `\xHH`, `\e`, multiline inline tables, inline-table trailing commas, or local times without seconds.
+
 ### encode()
 
 ```php
@@ -80,6 +90,12 @@ Encodes a PHP array to a TOML string.
 ```php
 $toml = Toml::encode(['key' => 'value']);
 // key = "value"
+
+$strict = Toml::encode(
+    ['time' => new \PhpCollective\Toml\Value\LocalTime('07:32')],
+    new EncoderOptions(version: TomlVersion::V10),
+);
+// time = 07:32:00
 ```
 
 ### encodeDocument()
@@ -201,6 +217,7 @@ public function __construct(
     string $newline = "\n",
     DocumentFormattingMode $documentFormatting = DocumentFormattingMode::Normalized,
     bool $skipNulls = false,
+    TomlVersion $version = TomlVersion::V11,
 )
 ```
 
@@ -208,6 +225,18 @@ public function __construct(
 - `$newline`: Newline sequence to use during encoding
 - `$documentFormatting`: `Normalized` or `SourceAware` for `encodeDocument()`
 - `$skipNulls`: Omit `null` values during `encode()` instead of throwing `EncodeException`
+- `$version`: default TOML output mode. Use `TomlVersion::V10` for strict TOML 1.0 encoding rules
+
+In strict TOML 1.0 mode, `encode()` normalizes local times and local datetimes to include seconds where possible. `encodeDocument()` in `DocumentFormattingMode::SourceAware` throws `EncodeException` if preserving the parsed source would keep TOML 1.1-only syntax.
+
+## TomlVersion
+
+Controls version-specific parser and encoder behavior.
+
+- `TomlVersion::V11`
+  Default behavior. Accepts TOML 1.1 syntax and emits TOML 1.1-compatible output.
+- `TomlVersion::V10`
+  Strict TOML 1.0 mode for parsing, decoding, and encoding.
 
 ## DocumentFormattingMode
 

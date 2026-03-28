@@ -27,6 +27,10 @@ use PhpCollective\Toml\Ast\Value\StringValue;
 use PhpCollective\Toml\Ast\Value\Value;
 use PhpCollective\Toml\Exception\EncodeException;
 use PhpCollective\Toml\Normalizer;
+use PhpCollective\Toml\Support\TemporalValidator;
+use PhpCollective\Toml\TomlVersion;
+use PhpCollective\Toml\Value\LocalDateTime as ValueLocalDateTime;
+use PhpCollective\Toml\Value\LocalTime as ValueLocalTime;
 use PhpCollective\Toml\Value\TomlValue;
 
 final class Encoder
@@ -59,6 +63,8 @@ final class Encoder
         if ($this->options->documentFormatting === DocumentFormattingMode::Normalized || !$this->documentHasTrivia($doc)) {
             return $this->encode($normalized);
         }
+
+        $this->assertDocumentSupportsVersion($doc);
 
         return $this->encodeAstItems($doc->items);
     }
@@ -142,6 +148,14 @@ final class Encoder
 
         if ($value instanceof DateTimeInterface) {
             return $value->format('Y-m-d\TH:i:s.uP');
+        }
+
+        if ($value instanceof ValueLocalDateTime) {
+            return $this->normalizeLocalDateTimeLiteral($value->value);
+        }
+
+        if ($value instanceof ValueLocalTime) {
+            return $this->normalizeLocalTimeLiteral($value->value);
         }
 
         if ($value instanceof TomlValue) {
@@ -279,9 +293,9 @@ final class Encoder
             $value instanceof FloatValue => $this->isReusableFloat($value) ? $value->raw : $this->encodeValue($value->value),
             $value instanceof BoolValue => $this->isReusableBool($value) ? $value->raw : ($value->value ? 'true' : 'false'),
             $value instanceof OffsetDateTime => $this->isReusableOffsetDateTime($value) ? $value->raw : $value->value->format('Y-m-d\TH:i:s.uP'),
-            $value instanceof LocalDateTime => $this->isReusableLocalDateTime($value) ? $value->raw : $value->value,
+            $value instanceof LocalDateTime => $this->isReusableLocalDateTime($value) ? $value->raw : $this->normalizeLocalDateTimeLiteral($value->value),
             $value instanceof LocalDate => $this->isReusableLocalDate($value) ? $value->raw : $value->value,
-            $value instanceof LocalTime => $this->isReusableLocalTime($value) ? $value->raw : $value->value,
+            $value instanceof LocalTime => $this->isReusableLocalTime($value) ? $value->raw : $this->normalizeLocalTimeLiteral($value->value),
             $value instanceof ArrayValue => $this->encodeAstArray($value),
             $value instanceof InlineTable => $this->encodeAstInlineTable($value),
             default => throw new EncodeException('Unsupported AST value for document encoding'),
@@ -428,6 +442,8 @@ final class Encoder
 
     private function encodeAstInlineTable(InlineTable $value): string
     {
+        $this->assertInlineTableSupportsVersion($value);
+
         if ($this->isReusableInlineTable($value)) {
             return $value->raw;
         }
@@ -483,6 +499,8 @@ final class Encoder
      */
     private function formatInlineTable(InlineTable $value): string
     {
+        $this->assertInlineTableSupportsVersion($value);
+
         if ($value->items === []) {
             return '{}';
         }
@@ -527,6 +545,8 @@ final class Encoder
      */
     private function formatInlineTableWithStyle(InlineTable $value, array $style): string
     {
+        $this->assertInlineTableSupportsVersion($value);
+
         if ($value->items === []) {
             return '{' . $style['opening'] . $style['closing'] . '}';
         }
@@ -546,6 +566,56 @@ final class Encoder
         }
 
         return $output . $style['closing'] . '}';
+    }
+
+    private function assertInlineTableSupportsVersion(InlineTable $value, bool $sourceAware = false): void
+    {
+        if ($this->options->version !== TomlVersion::V10) {
+            return;
+        }
+
+        if ($value->hasTrailingComma) {
+            throw new EncodeException($sourceAware
+                ? 'Source-aware TOML 1.0 output cannot preserve inline table trailing commas'
+                : 'TOML 1.0 does not allow trailing commas in inline tables');
+        }
+
+        if (
+            $this->triviaContainsNewline($value->openingTrivia)
+            || $this->triviaContainsNewline($value->closingTrivia)
+        ) {
+            throw new EncodeException($sourceAware
+                ? 'Source-aware TOML 1.0 output cannot preserve multiline inline tables'
+                : 'TOML 1.0 does not allow multiline inline tables');
+        }
+
+        foreach ($value->items as $item) {
+            if ($this->triviaContainsNewline($item->getLeadingTrivia()) || $this->triviaContainsNewline($item->getTrailingTrivia())) {
+                throw new EncodeException($sourceAware
+                    ? 'Source-aware TOML 1.0 output cannot preserve multiline inline tables'
+                    : 'TOML 1.0 does not allow multiline inline tables');
+            }
+        }
+    }
+
+    private function normalizeLocalDateTimeLiteral(string $value): string
+    {
+        if ($this->options->version === TomlVersion::V11) {
+            return $value;
+        }
+
+        return preg_replace('/^(.+[Tt ])(\d{2}:\d{2})$/', '$1$2:00', $value) ?? $value;
+    }
+
+    private function normalizeLocalTimeLiteral(string $value): string
+    {
+        if ($this->options->version === TomlVersion::V11) {
+            return $value;
+        }
+
+        return preg_match('/^\d{2}:\d{2}$/', $value) === 1
+            ? $value . ':00'
+            : $value;
     }
 
     private function encodeMultilineBasicString(string $value): string
@@ -592,6 +662,77 @@ final class Encoder
         }
 
         return false;
+    }
+
+    private function assertDocumentSupportsVersion(Document $doc): void
+    {
+        if ($this->options->version !== TomlVersion::V10) {
+            return;
+        }
+
+        foreach ($doc->items as $item) {
+            if ($item instanceof KeyValue) {
+                $this->assertAstValueSupportsVersion($item->value);
+
+                continue;
+            }
+
+            foreach ($item->items as $child) {
+                $this->assertAstValueSupportsVersion($child->value);
+            }
+        }
+    }
+
+    private function assertAstValueSupportsVersion(Value $value): void
+    {
+        if ($this->options->version !== TomlVersion::V10) {
+            return;
+        }
+
+        if ($value instanceof OffsetDateTime) {
+            $literal = $value->raw !== '' ? $value->raw : $value->value->format('Y-m-d\TH:i:s.uP');
+            if (!TemporalValidator::isValidOffsetDateTime($literal, TomlVersion::V10)) {
+                throw new EncodeException('Source-aware TOML 1.0 output cannot preserve offset datetimes without seconds');
+            }
+
+            return;
+        }
+
+        if ($value instanceof LocalDateTime) {
+            $literal = $value->raw !== '' ? $value->raw : $value->value;
+            if (!TemporalValidator::isValidLocalDateTime($literal, TomlVersion::V10)) {
+                throw new EncodeException('Source-aware TOML 1.0 output cannot preserve local datetimes without seconds');
+            }
+
+            return;
+        }
+
+        if ($value instanceof LocalTime) {
+            $literal = $value->raw !== '' ? $value->raw : $value->value;
+            if (!TemporalValidator::isValidLocalTime($literal, TomlVersion::V10)) {
+                throw new EncodeException('Source-aware TOML 1.0 output cannot preserve local times without seconds');
+            }
+
+            return;
+        }
+
+        if ($value instanceof ArrayValue) {
+            foreach ($value->items as $item) {
+                $this->assertAstValueSupportsVersion($item);
+            }
+
+            return;
+        }
+
+        if (!$value instanceof InlineTable) {
+            return;
+        }
+
+        $this->assertInlineTableSupportsVersion($value, sourceAware: true);
+
+        foreach ($value->items as $item) {
+            $this->assertAstValueSupportsVersion($item->value);
+        }
     }
 
     private function astValueHasTrivia(Value $value): bool

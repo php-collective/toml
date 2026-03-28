@@ -6,6 +6,8 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 
 The sections below intentionally separate parsing/decoding, encoding, and round-trip editing so support claims stay scoped to the actual surface being described.
 
+The default API behavior is TOML 1.1-compatible. Strict TOML 1.0 parsing/decoding and encoding are available through `TomlVersion::V10` and `EncoderOptions(version: TomlVersion::V10)`.
+
 ## Status Legend
 
 - Supported: implemented and covered by tests
@@ -37,17 +39,17 @@ The sections below intentionally separate parsing/decoding, encoding, and round-
 | Multiline basic strings | Supported | |
 | Multiline literal strings | Supported | |
 | `\u` and `\U` escapes | Supported | |
-| `\xHH` escapes | Supported | TOML 1.1 |
-| `\e` escape | Supported | TOML 1.1 |
+| `\xHH` escapes | Supported | TOML 1.1; rejected in strict TOML 1.0 mode |
+| `\e` escape | Supported | TOML 1.1; rejected in strict TOML 1.0 mode |
 | Invalid escape rejection | Supported | |
 | Integers | Supported | Decimal, hex, octal, binary |
 | Float values | Supported | Includes exponent form |
 | `inf`, `-inf`, `nan` | Supported | |
 | Boolean values | Supported | |
 | Offset datetime | Supported | |
-| Local datetime | Supported | |
+| Local datetime | Supported | Optional-seconds forms are rejected in strict TOML 1.0 mode |
 | Local date | Supported | |
-| Local time | Supported | Optional seconds supported |
+| Local time | Supported | Optional-seconds forms are rejected in strict TOML 1.0 mode |
 
 ### Collections
 
@@ -59,8 +61,8 @@ The sections below intentionally separate parsing/decoding, encoding, and round-
 | Inline tables | Supported | Single-line and multiline |
 | Nested inline tables | Supported | |
 | Dotted keys inside inline tables | Supported | |
-| Inline table trailing commas | Supported | TOML 1.1 |
-| Multiline inline tables | Supported | TOML 1.1 |
+| Inline table trailing commas | Supported | TOML 1.1; rejected in strict TOML 1.0 mode |
+| Multiline inline tables | Supported | TOML 1.1; rejected in strict TOML 1.0 mode |
 
 ## Encoding
 
@@ -76,11 +78,11 @@ The sections below intentionally separate parsing/decoding, encoding, and round-
 | Quoted keys when needed | Supported | |
 | `DateTimeInterface` | Partial | Encoded as offset datetime with microseconds and offset |
 | `PhpCollective\Toml\Value\LocalDate` | Supported | Encoded as local date literal |
-| `PhpCollective\Toml\Value\LocalTime` | Supported | Encoded as local time literal |
-| `PhpCollective\Toml\Value\LocalDateTime` | Supported | Encoded as local datetime literal |
+| `PhpCollective\Toml\Value\LocalTime` | Supported | Encoded as local time literal; strict TOML 1.0 mode normalizes missing seconds |
+| `PhpCollective\Toml\Value\LocalDateTime` | Supported | Encoded as local datetime literal; strict TOML 1.0 mode normalizes missing seconds |
 | Plain string to local temporal literal coercion | Not Yet | Plain strings are emitted as quoted strings |
 | Null values | Supported | Rejected with `EncodeException` |
-| Original lexical style preservation | Partial | `encodeDocument()` can preserve parsed key and string styles |
+| Original lexical style preservation | Partial | `encodeDocument()` can preserve parsed key and string styles; strict TOML 1.0 source-aware output rejects preserved 1.1-only syntax |
 
 ## AST and Round-Trip Editing
 

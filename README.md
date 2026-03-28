@@ -38,6 +38,7 @@ composer require php-collective/toml
 
 ```php
 use PhpCollective\Toml\Toml;
+use PhpCollective\Toml\TomlVersion;
 
 // Decode TOML to PHP array
 $config = Toml::decode(<<<'TOML'
@@ -47,6 +48,9 @@ port = 5432
 TOML);
 
 echo $config['database']['host']; // "localhost"
+
+// Opt into strict TOML 1.0 parsing/decoding
+$strict = Toml::decode('time = 07:32:00', TomlVersion::V10);
 
 // Encode PHP array to TOML
 $toml = Toml::encode([
@@ -93,6 +97,7 @@ use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Ast\Value\StringStyle;
 use PhpCollective\Toml\Ast\Value\StringValue;
+use PhpCollective\Toml\TomlVersion;
 
 // Encode to TOML string
 $toml = Toml::encode($array);
@@ -102,6 +107,9 @@ Toml::encodeFile('/path/to/config.toml', $array);
 
 // With options - e.g. omit nulls instead of throwing
 $toml = Toml::encode($array, new EncoderOptions(skipNulls: true));
+
+// Strict TOML 1.0 output
+$toml = Toml::encode($array, new EncoderOptions(version: TomlVersion::V10));
 
 // encodeDocument() is normalized by default
 $document = Toml::parse($tomlString, true);
@@ -162,6 +170,8 @@ The library currently supports:
 - Dotted keys
 
 See the [Support Matrix](https://php-collective.github.io/toml/reference/support-matrix) for current coverage and known gaps.
+
+Versioned behavior is available through `TomlVersion` and `EncoderOptions(version: ...)`. The default remains TOML 1.1-compatible; use `TomlVersion::V10` when you need strict TOML 1.0 parsing or output rules.
 
 For explicit local temporal encoding, use:
 

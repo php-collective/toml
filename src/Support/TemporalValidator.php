@@ -6,13 +6,17 @@ namespace PhpCollective\Toml\Support;
 
 use DateTimeImmutable;
 use Exception;
+use PhpCollective\Toml\TomlVersion;
 
 final class TemporalValidator
 {
-    public static function isValidOffsetDateTime(string $value): bool
+    public static function isValidOffsetDateTime(string $value, TomlVersion $version = TomlVersion::V11): bool
     {
         // Single regex to validate format and extract date/time parts
-        if (preg_match('/^(\d{4}-\d{2}-\d{2})[Tt ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(?:[Zz]|[+-]\d{2}:\d{2})$/', $value, $matches) !== 1) {
+        $timePattern = $version === TomlVersion::V10
+            ? '\d{2}:\d{2}:\d{2}(?:\.\d+)?'
+            : '\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?';
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})[Tt ](' . $timePattern . ')(?:[Zz]|[+-]\d{2}:\d{2})$/', $value, $matches) !== 1) {
             return false;
         }
 
@@ -28,9 +32,12 @@ final class TemporalValidator
         return self::isValidLocalDate($matches[1]) && self::isValidLocalTime($matches[2]);
     }
 
-    public static function isValidLocalDateTime(string $value): bool
+    public static function isValidLocalDateTime(string $value, TomlVersion $version = TomlVersion::V11): bool
     {
-        if (preg_match('/^(\d{4}-\d{2}-\d{2})[Tt ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)$/', $value, $matches) !== 1) {
+        $timePattern = $version === TomlVersion::V10
+            ? '\d{2}:\d{2}:\d{2}(?:\.\d+)?'
+            : '\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?';
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})[Tt ](' . $timePattern . ')$/', $value, $matches) !== 1) {
             return false;
         }
 
@@ -46,9 +53,12 @@ final class TemporalValidator
         return checkdate((int)$matches[2], (int)$matches[3], (int)$matches[1]);
     }
 
-    public static function isValidLocalTime(string $value): bool
+    public static function isValidLocalTime(string $value, TomlVersion $version = TomlVersion::V11): bool
     {
-        if (preg_match('/^(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/', $value, $matches) !== 1) {
+        $pattern = $version === TomlVersion::V10
+            ? '/^(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/'
+            : '/^(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/';
+        if (preg_match($pattern, $value, $matches) !== 1) {
             return false;
         }
 
