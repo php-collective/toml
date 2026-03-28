@@ -4,6 +4,8 @@ This page describes what the library supports today, what is partial, and what i
 
 It is intentionally narrower than a blanket "full TOML support" claim. The goal is to document observed behavior that is backed by the current code and test suite.
 
+The sections below intentionally separate parsing/decoding, encoding, and round-trip editing so support claims stay scoped to the actual surface being described.
+
 ## Status Legend
 
 - Supported: implemented and covered by tests

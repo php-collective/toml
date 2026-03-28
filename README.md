@@ -157,7 +157,7 @@ The library currently supports:
 - Booleans
 - Dates and times (offset, local datetime, local date, local time)
 - Arrays (including multiline arrays and trailing commas)
-- Inline tables (single-line only; trailing commas rejected)
+- Inline tables (including multiline inline tables and trailing commas in TOML 1.1)
 - Tables and array of tables
 - Dotted keys
 
