@@ -38,6 +38,8 @@ final class EditingFixtureTest extends TestCase
             'single-line-array-remove-to-one' => $this->applySingleLineArrayRemovalToOne($document),
             'single-line-array-remove-consistent' => $this->applySingleLineArrayRemoval($document),
             'single-line-inline-insert' => $this->applySingleLineInlineInsert($document),
+            'single-line-inline-insert-from-one' => $this->applySingleLineInlineInsert($document),
+            'nested-single-line-inline-insert-from-one' => $this->applyNestedSingleLineInlineInsert($document),
             'single-line-inline-remove-to-one' => $this->applySingleLineInlineRemovalToOne($document),
             'single-line-inline-remove-consistent' => $this->applySingleLineInlineRemoval($document),
             'single-line-value-replace' => $this->applySingleLineValueReplace($document),
@@ -270,6 +272,20 @@ final class EditingFixtureTest extends TestCase
         $item->value->items[0]->items[0]->value->items[1] = new KeyValue(
             new Key(['z'], [KeyStyle::Bare], $this->span()),
             new IntegerValue(9, IntegerBase::Decimal, $this->span()),
+            $this->span(),
+        );
+    }
+
+    private function applyNestedSingleLineInlineInsert(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+        self::assertInstanceOf(InlineTable::class, $item->value);
+        self::assertInstanceOf(InlineTable::class, $item->value->items[0]->value);
+
+        $item->value->items[0]->value->items[] = new KeyValue(
+            new Key(['y'], [KeyStyle::Bare], $this->span()),
+            new IntegerValue(2, IntegerBase::Decimal, $this->span()),
             $this->span(),
         );
     }
