@@ -103,7 +103,7 @@ final class Parser
                     $currentTable = $table;
                 }
             } elseif (
-                $token->is(TokenType::BareKey, TokenType::BasicString, TokenType::LiteralString) ||
+                $token->is(TokenType::BareKey, TokenType::BasicString, TokenType::LiteralString, TokenType::Invalid) ||
                 $token->is(TokenType::Integer, TokenType::Float, TokenType::Boolean) ||
                 $token->is(TokenType::LocalDate, TokenType::LocalTime, TokenType::LocalDateTime, TokenType::OffsetDateTime)
             ) {
@@ -251,8 +251,17 @@ final class Parser
                 $styles[] = KeyStyle::Literal;
                 $this->advance();
             } elseif ($token->is(TokenType::Integer)) {
-                // Integer-looking tokens can be bare keys only when they are unsigned decimal digits.
-                if (preg_match('/^\d[\d_]*$/', $token->value) !== 1) {
+                // Integer-looking tokens can be bare keys when they are decimal integers.
+                if (preg_match('/^[+-]?\d[\d_]*$/', $token->value) !== 1) {
+                    $this->error('Expected key', $token->span);
+
+                    return null;
+                }
+                $parts[] = $token->value;
+                $styles[] = KeyStyle::Bare;
+                $this->advance();
+            } elseif ($token->is(TokenType::Invalid)) {
+                if (preg_match('/^[A-Za-z0-9_-]+$/', $token->value) !== 1) {
                     $this->error('Expected key', $token->span);
 
                     return null;
@@ -280,9 +289,8 @@ final class Parser
                     // Remove the extra separator we added
                     array_pop($rawSeparators);
                 } else {
-                    $this->error('Expected key', $token->span);
-
-                    return null;
+                    $parts[] = $value;
+                    $styles[] = KeyStyle::Bare;
                 }
                 $this->advance();
             } elseif ($token->is(TokenType::LocalDate, TokenType::LocalTime, TokenType::LocalDateTime, TokenType::OffsetDateTime)) {
