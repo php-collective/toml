@@ -1046,8 +1046,18 @@ final class Encoder
         $afterComma = null;
         $observedPair = false;
         $itemCount = count($value->items);
+        $reusableItemCount = 0;
+        $lastReusableItem = null;
 
         for ($index = 0; $index < $itemCount - 1; $index++) {
+            if (!$this->isSyntheticNode($value->items[$index])) {
+                $reusableItemCount++;
+                $lastReusableItem = $value->items[$index];
+            }
+            if ($index === $itemCount - 2 && !$this->isSyntheticNode($value->items[$index + 1])) {
+                $reusableItemCount++;
+                $lastReusableItem = $value->items[$index + 1];
+            }
             if ($this->isSyntheticNode($value->items[$index]) || $this->isSyntheticNode($value->items[$index + 1])) {
                 continue;
             }
@@ -1069,6 +1079,21 @@ final class Encoder
         }
 
         if (!$observedPair) {
+            if ($reusableItemCount === 1) {
+                $closingSpacing = $closing;
+                if ($closingSpacing === '' && $lastReusableItem !== null) {
+                    $closingSpacing = $this->singleLineWhitespaceTrivia($lastReusableItem->getTrailingTrivia()) ?? '';
+                }
+
+                return [
+                    'opening' => $opening,
+                    'beforeComma' => '',
+                    'afterComma' => $closingSpacing !== '' ? $closingSpacing : ($opening !== '' ? $opening : ' '),
+                    'closing' => $closingSpacing,
+                    'trailingComma' => $value->hasTrailingComma,
+                ];
+            }
+
             return null;
         }
 

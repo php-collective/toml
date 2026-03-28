@@ -33,6 +33,7 @@ final class EditingFixtureTest extends TestCase
 
         match (basename($caseDir)) {
             'single-line-array-insert-consistent' => $this->applySingleLineArrayInsert($document),
+            'single-line-array-insert-from-one' => $this->applySingleLineArrayInsert($document),
             'single-line-array-remove' => $this->applySingleLineArrayRemoval($document),
             'single-line-array-remove-to-one' => $this->applySingleLineArrayRemovalToOne($document),
             'single-line-array-remove-consistent' => $this->applySingleLineArrayRemoval($document),
