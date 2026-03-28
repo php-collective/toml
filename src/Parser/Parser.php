@@ -29,6 +29,7 @@ use PhpCollective\Toml\Lexer\Lexer;
 use PhpCollective\Toml\Lexer\Span;
 use PhpCollective\Toml\Lexer\Token;
 use PhpCollective\Toml\Lexer\TokenType;
+use PhpCollective\Toml\TomlVersion;
 
 final class Parser
 {
@@ -48,15 +49,17 @@ final class Parser
 
     private string $input = '';
 
-    public function __construct(bool $preserveTrivia = false)
-    {
+    public function __construct(
+        bool $preserveTrivia = false,
+        private readonly TomlVersion $version = TomlVersion::V11,
+    ) {
         $this->preserveTrivia = $preserveTrivia;
     }
 
     public function parse(string $input): Document
     {
         $this->input = $input;
-        $lexer = new Lexer($input);
+        $lexer = new Lexer($input, $this->version);
         $this->tokens = iterator_to_array($lexer->tokenize());
         $this->pos = 0;
         $this->errors = [];
@@ -572,6 +575,9 @@ final class Parser
                 }
 
                 $nextLeadingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
+                if (!$this->preserveTrivia) {
+                    $this->skipTriviaInCollection();
+                }
                 if ($this->check(TokenType::RightBrace)) {
                     $hasTrailingComma = true;
                     $closingTrivia = $nextLeadingTrivia;
@@ -586,6 +592,16 @@ final class Parser
         $this->expect(TokenType::RightBrace);
         $span = $start->merge($this->previous()->span);
 
+        if ($this->version === TomlVersion::V10) {
+            if ($this->inlineTableIsMultiline($start)) {
+                $this->error('Multiline inline tables require TOML 1.1', $span);
+            }
+
+            if ($hasTrailingComma) {
+                $this->error('Inline table trailing commas require TOML 1.1', $span);
+            }
+        }
+
         return new InlineTable(
             $items,
             $span,
@@ -596,6 +612,11 @@ final class Parser
             $this->slice($span),
             $this->inferSingleLineInlineTableStyle($items, $openingTrivia, $closingTrivia),
         );
+    }
+
+    private function inlineTableIsMultiline(Span $start): bool
+    {
+        return $start->line !== $this->previous()->span->line;
     }
 
     // Helper methods

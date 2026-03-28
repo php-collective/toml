@@ -2,6 +2,8 @@
 
 A complete reference for TOML syntax supported by PHP Toml.
 
+By default, the library parses TOML 1.1-compatible syntax. Use `TomlVersion::V10` when you need strict TOML 1.0 rejection of the 1.1-only forms called out below.
+
 ## Comments
 
 ```toml
@@ -73,7 +75,7 @@ Basic strings reject raw control characters other than tab.
 | `\"` | Quote (U+0022) |
 | `\\` | Backslash (U+005C) |
 | `\e` | Escape (U+001B) - TOML 1.1 |
-| `\xHH` | Unicode (U+00HH) - TOML 1.1 |
+| `\xHH` | Byte escape (U+00HH) - TOML 1.1 |
 | `\uHHHH` | Unicode (U+HHHH) |
 | `\UHHHHHHHH` | Unicode (U+HHHHHHHH) |
 
@@ -193,6 +195,8 @@ lt1 = 07:32:00
 lt2 = 07:32:00.999999
 lt3 = 07:32           # Optional seconds (TOML 1.1)
 ```
+
+Strict TOML 1.0 mode rejects local times and local datetimes that omit seconds.
 
 ## Arrays
 

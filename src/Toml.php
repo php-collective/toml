@@ -21,9 +21,9 @@ final class Toml
      *
      * @return array<string, mixed>
      */
-    public static function decode(string $input): array
+    public static function decode(string $input, TomlVersion $version = TomlVersion::V11): array
     {
-        $parser = new Parser();
+        $parser = new Parser(version: $version);
         $doc = $parser->parse($input);
         $normalizer = new Normalizer();
         $value = $normalizer->normalize($doc);
@@ -45,23 +45,23 @@ final class Toml
      *
      * @return array<string, mixed>
      */
-    public static function decodeFile(string $path): array
+    public static function decodeFile(string $path, TomlVersion $version = TomlVersion::V11): array
     {
         $content = @file_get_contents($path);
         if ($content === false) {
             throw new ParseException("Cannot read file: {$path}");
         }
 
-        return self::decode($content);
+        return self::decode($content, $version);
     }
 
     /**
      * Parse without throwing - returns result with errors.
      * For tooling/IDE use.
      */
-    public static function tryParse(string $input): ParseResult
+    public static function tryParse(string $input, TomlVersion $version = TomlVersion::V11): ParseResult
     {
-        $parser = new Parser();
+        $parser = new Parser(version: $version);
         $doc = $parser->parse($input);
         $normalizer = new Normalizer();
         $value = $normalizer->normalize($doc);
@@ -75,9 +75,12 @@ final class Toml
     /**
      * Parse to AST for analysis or normalized re-encoding.
      */
-    public static function parse(string $input, bool $preserveTrivia = false): Document
-    {
-        $parser = new Parser($preserveTrivia);
+    public static function parse(
+        string $input,
+        bool $preserveTrivia = false,
+        TomlVersion $version = TomlVersion::V11,
+    ): Document {
+        $parser = new Parser($preserveTrivia, $version);
 
         return $parser->parse($input);
     }

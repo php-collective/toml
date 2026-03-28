@@ -7,6 +7,7 @@ namespace PhpCollective\Toml\Lexer;
 use DateTimeImmutable;
 use Generator;
 use PhpCollective\Toml\Support\TemporalValidator;
+use PhpCollective\Toml\TomlVersion;
 
 final class Lexer
 {
@@ -18,8 +19,10 @@ final class Lexer
 
     private int $length;
 
-    public function __construct(private readonly string $input)
-    {
+    public function __construct(
+        private readonly string $input,
+        private readonly TomlVersion $version = TomlVersion::V11,
+    ) {
         $this->length = strlen($input);
     }
 
@@ -227,8 +230,8 @@ final class Lexer
             'r' => "\r",
             '"' => '"',
             '\\' => '\\',
-            'e' => "\x1B", // TOML 1.1
-            'x' => $this->parseHexEscape(2), // TOML 1.1
+            'e' => $this->version === TomlVersion::V11 ? "\x1B" : null,
+            'x' => $this->version === TomlVersion::V11 ? $this->parseHexEscape(2) : null,
             'u' => $this->parseHexEscape(4),
             'U' => $this->parseHexEscape(8),
             default => null,
@@ -827,12 +830,12 @@ final class Lexer
 
     private function isValidOffsetDateTime(string $value): bool
     {
-        return TemporalValidator::isValidOffsetDateTime($value);
+        return TemporalValidator::isValidOffsetDateTime($value, $this->version);
     }
 
     private function isValidLocalDateTime(string $value): bool
     {
-        return TemporalValidator::isValidLocalDateTime($value);
+        return TemporalValidator::isValidLocalDateTime($value, $this->version);
     }
 
     private function isValidLocalDate(string $value): bool
@@ -842,7 +845,7 @@ final class Lexer
 
     private function isValidLocalTime(string $value): bool
     {
-        return TemporalValidator::isValidLocalTime($value);
+        return TemporalValidator::isValidLocalTime($value, $this->version);
     }
 
     private function isBareKeyChar(string $char): bool

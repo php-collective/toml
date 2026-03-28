@@ -18,6 +18,7 @@ use PhpCollective\Toml\Ast\Value\OffsetDateTime;
 use PhpCollective\Toml\Ast\Value\StringValue;
 use PhpCollective\Toml\Ast\Value\Value;
 use PhpCollective\Toml\Toml;
+use PhpCollective\Toml\TomlVersion;
 
 final class JsonObject
 {
@@ -31,9 +32,13 @@ final class JsonObject
 }
 
 $input = stream_get_contents(STDIN);
+$version = match (getenv('TOML_VERSION')) {
+    '1.0' => TomlVersion::V10,
+    default => TomlVersion::V11,
+};
 
 try {
-    $result = Toml::tryParse($input);
+    $result = Toml::tryParse($input, $version);
     if (!$result->isValid()) {
         fwrite(STDERR, $result->getErrors()[0]->message . "\n");
         exit(1);
