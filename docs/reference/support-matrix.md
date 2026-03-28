@@ -119,19 +119,19 @@ Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0:
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
-| Valid | 213 | 1 | 99.5% |
-| Invalid | 466 | 9 | 98.1% |
+| Valid | 428 | 0 | 100% |
+| Invalid | 466 | 0 | 100% |
 
 ### TOML 1.0
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
-| Valid | 204 | 1 | 99.5% |
-| Invalid | 466 | 17 | 96.5% |
+| Valid | 410 | 0 | 100% |
+| Invalid | 464 | 9 | 98.1% |
 
-The single valid test failure is due to a PHP limitation with null byte property names.
+These results were measured against the library's `bin/toml-decoder` adapter for the `toml-test` tagged JSON format.
 
-The remaining invalid test failures are TOML 1.0 strict tests for features that TOML 1.1 relaxes (multiline inline tables, trailing commas, `\xHH` escapes, optional seconds in times).
+The remaining TOML 1.0 invalid-test failures are strict 1.0 rejections for syntax that TOML 1.1 relaxes and this library intentionally accepts: multiline inline tables, inline-table trailing commas, `\xHH` byte escapes, and optional seconds in local times/datetimes.
 
 ## Recommended Use
 
