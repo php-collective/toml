@@ -34,6 +34,16 @@ use PhpCollective\Toml\TomlVersion;
 final class Parser
 {
     /**
+     * @var string
+     */
+    private const CONTEXT_ARRAY = 'array';
+
+    /**
+     * @var string
+     */
+    private const CONTEXT_INLINE_TABLE = 'inline_table';
+
+    /**
      * @var array<\PhpCollective\Toml\Parser\ParseError>
      */
     private array $errors = [];
@@ -49,6 +59,14 @@ final class Parser
 
     private string $input = '';
 
+    /**
+     * Stack tracking nesting context for error recovery.
+     * Contains 'array' or 'inline_table' entries.
+     *
+     * @var array<string>
+     */
+    private array $contextStack = [];
+
     public function __construct(
         bool $preserveTrivia = false,
         private readonly TomlVersion $version = TomlVersion::V11,
@@ -63,6 +81,7 @@ final class Parser
         $this->tokens = iterator_to_array($lexer->tokenize());
         $this->pos = 0;
         $this->errors = [];
+        $this->contextStack = [];
 
         return $this->parseDocument();
     }
@@ -224,6 +243,156 @@ final class Parser
             $this->slicePrefixTo($span, $value->getSpan()),
             $this->sliceRange($key->getSpan()->end, $value->getSpan()->start),
         );
+    }
+
+    /**
+     * Parse a key-value pair inside an inline table.
+     * Unlike parseKeyValue(), this does not call synchronize() on error,
+     * allowing the inline table parser to handle recovery.
+     */
+    private function parseInlineTableKeyValue(): ?KeyValue
+    {
+        $start = $this->current()->span;
+        $key = $this->parseKeyWithoutSync();
+
+        if ($key === null) {
+            return null;
+        }
+
+        if (!$this->check(TokenType::Equals)) {
+            $hint = $this->getExpectHint(TokenType::Equals);
+            $this->error('Expected =', $this->current()->span, $hint);
+
+            return null;
+        }
+        $this->advance();
+
+        $this->skipWhitespace();
+
+        $value = $this->parseValue();
+        if ($value === null) {
+            $token = $this->current();
+            if ($token->is(TokenType::Invalid)) {
+                $hint = $this->getInvalidTokenHint($token->value);
+                $this->error("Invalid token: `{$token->value}`", $token->span, $hint);
+            } else {
+                $hint = $this->getExpectedValueHint($token);
+                $this->error('Expected value', $token->span, $hint);
+            }
+
+            return null;
+        }
+
+        $span = $start->merge($value->getSpan());
+
+        return new KeyValue(
+            $key,
+            $value,
+            $span,
+            $this->slice($span),
+            $this->slicePrefixTo($span, $value->getSpan()),
+            $this->sliceRange($key->getSpan()->end, $value->getSpan()->start),
+        );
+    }
+
+    /**
+     * Parse a key without calling synchronize() on error.
+     * Used for inline table key-value parsing where the parent handles recovery.
+     */
+    private function parseKeyWithoutSync(): ?Key
+    {
+        $parts = [];
+        $styles = [];
+        $start = null;
+        $rawSeparators = [];
+        $lastPartEnd = 0;
+        $separatorStart = null;
+
+        do {
+            $this->skipWhitespace();
+            $token = $this->current();
+            $start ??= $token->span;
+
+            if ($separatorStart !== null) {
+                $rawSeparators[] = $this->sliceRange($separatorStart, $token->span->start);
+                $separatorStart = null;
+            }
+
+            if ($token->is(TokenType::BareKey)) {
+                $parts[] = $token->parsed;
+                $styles[] = KeyStyle::Bare;
+                $this->advance();
+            } elseif ($token->is(TokenType::BasicString)) {
+                $parts[] = $token->parsed;
+                $styles[] = KeyStyle::Basic;
+                $this->advance();
+            } elseif ($token->is(TokenType::LiteralString)) {
+                $parts[] = $token->parsed;
+                $styles[] = KeyStyle::Literal;
+                $this->advance();
+            } elseif ($token->is(TokenType::Integer)) {
+                if (preg_match('/^[+-]?\d[\d_]*$/', $token->value) !== 1) {
+                    $this->error('Expected key', $token->span, 'Only decimal integers can be used as bare keys.');
+
+                    return null;
+                }
+                $parts[] = $token->value;
+                $styles[] = KeyStyle::Bare;
+                $this->advance();
+            } elseif ($token->is(TokenType::Invalid)) {
+                if (preg_match('/^[A-Za-z0-9_-]+$/', $token->value) !== 1) {
+                    $hint = $this->getExpectedKeyHint($token);
+                    $this->error('Expected key', $token->span, $hint);
+
+                    return null;
+                }
+                $parts[] = $token->value;
+                $styles[] = KeyStyle::Bare;
+                $this->advance();
+            } elseif ($token->is(TokenType::Boolean)) {
+                $parts[] = $token->value;
+                $styles[] = KeyStyle::Bare;
+                $this->advance();
+            } elseif ($token->is(TokenType::Float)) {
+                $value = $token->value;
+                if (preg_match('/^\d+\.\d+$/', str_replace('_', '', $value)) === 1 && !str_contains(strtolower($value), 'e')) {
+                    $dotParts = explode('.', $value);
+                    foreach ($dotParts as $part) {
+                        $parts[] = $part;
+                        $styles[] = KeyStyle::Bare;
+                        $rawSeparators[] = '.';
+                    }
+                    array_pop($rawSeparators);
+                } else {
+                    $parts[] = $value;
+                    $styles[] = KeyStyle::Bare;
+                }
+                $this->advance();
+            } elseif ($token->is(TokenType::LocalDate, TokenType::LocalTime, TokenType::LocalDateTime, TokenType::OffsetDateTime)) {
+                $parts[] = $token->value;
+                $styles[] = KeyStyle::Bare;
+                $this->advance();
+            } else {
+                $hint = $this->getExpectedKeyHint($token);
+                $this->error('Expected key', $token->span, $hint);
+
+                return null;
+            }
+
+            $lastPartEnd = $token->span->end;
+            $this->skipWhitespace();
+            if ($this->match(TokenType::Dot)) {
+                $separatorStart = $lastPartEnd;
+
+                continue;
+            }
+
+            break;
+        } while (true);
+
+        $span = new Span($start->start, $lastPartEnd, $start->line, $start->column);
+
+        return new Key($parts, $styles, $span, $this->slice($span), null, null, $rawSeparators);
     }
 
     private function parseKey(): ?Key
@@ -450,6 +619,8 @@ final class Parser
 
     private function parseArray(): ArrayValue
     {
+        $this->contextStack[] = self::CONTEXT_ARRAY;
+
         $start = $this->current()->span;
         $this->advance(); // skip [
 
@@ -478,12 +649,12 @@ final class Parser
                 $token = $this->current();
                 if (!$this->check(TokenType::RightBracket)) {
                     $this->error('Expected value in array', $token->span);
-                    // Skip the problematic token to recover
-                    if ($this->match(TokenType::Comma)) {
-                        continue;
+                    // Recover within the array context
+                    if (!$this->synchronizeInCollection()) {
+                        break;
                     }
 
-                    break;
+                    continue;
                 }
 
                 break;
@@ -523,6 +694,8 @@ final class Parser
         $this->expect(TokenType::RightBracket);
         $span = $start->merge($this->previous()->span);
 
+        array_pop($this->contextStack);
+
         return new ArrayValue(
             $items,
             $span,
@@ -537,6 +710,8 @@ final class Parser
 
     private function parseInlineTable(): InlineTable
     {
+        $this->contextStack[] = self::CONTEXT_INLINE_TABLE;
+
         $start = $this->current()->span;
         $this->advance(); // skip {
 
@@ -559,12 +734,19 @@ final class Parser
                 break;
             }
 
-            $kv = $this->parseKeyValue();
+            $kv = $this->parseInlineTableKeyValue();
             if ($kv !== null) {
                 if ($this->preserveTrivia) {
                     $kv->setLeadingTrivia($nextLeadingTrivia);
                 }
                 $items[] = $kv;
+            } else {
+                // Failed to parse key-value, try to recover
+                if (!$this->synchronizeInCollection()) {
+                    break;
+                }
+
+                continue;
             }
 
             $trailingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
@@ -576,7 +758,7 @@ final class Parser
                 if (!$this->match(TokenType::Comma)) {
                     break;
                 }
-                if ($kv !== null && $this->preserveTrivia) {
+                if ($this->preserveTrivia) {
                     $kv->setTrailingTrivia($trailingTrivia);
                 }
 
@@ -590,13 +772,15 @@ final class Parser
 
                     break;
                 }
-            } elseif ($kv !== null && $this->preserveTrivia) {
+            } elseif ($this->preserveTrivia) {
                 $kv->setTrailingTrivia($trailingTrivia);
             }
         }
 
         $this->expect(TokenType::RightBrace);
         $span = $start->merge($this->previous()->span);
+
+        array_pop($this->contextStack);
 
         if ($this->version === TomlVersion::V10) {
             if ($this->inlineTableIsMultiline($start)) {
@@ -1055,6 +1239,10 @@ final class Parser
         $this->errors[] = new ParseError($message, $span, $hint);
     }
 
+    /**
+     * Synchronize parser state after an error at the top level.
+     * Skips tokens until a newline or table header is found.
+     */
     private function synchronize(): void
     {
         while (!$this->isAtEnd()) {
@@ -1063,10 +1251,57 @@ final class Parser
 
                 return;
             }
+            // Stop at table header start for recovery
             if ($this->check(TokenType::LeftBracket)) {
                 return;
             }
             $this->advance();
         }
+    }
+
+    /**
+     * Synchronize parser state after an error inside a collection (array or inline table).
+     * Skips to the next comma or closing bracket/brace, allowing recovery within the collection.
+     *
+     * @return bool True if recovery found a comma (can continue parsing), false if hit closing bracket/brace or end
+     */
+    private function synchronizeInCollection(): bool
+    {
+        $depth = 0;
+
+        while (!$this->isAtEnd()) {
+            $token = $this->current();
+
+            // Track nested brackets to avoid stopping at wrong level
+            if ($token->is(TokenType::LeftBracket, TokenType::LeftBrace)) {
+                $depth++;
+                $this->advance();
+
+                continue;
+            }
+
+            if ($token->is(TokenType::RightBracket, TokenType::RightBrace)) {
+                if ($depth > 0) {
+                    $depth--;
+                    $this->advance();
+
+                    continue;
+                }
+
+                // At our level's closing bracket - stop without consuming
+                return false;
+            }
+
+            // At our level, comma means we can continue with next element
+            if ($depth === 0 && $token->is(TokenType::Comma)) {
+                $this->advance();
+
+                return true;
+            }
+
+            $this->advance();
+        }
+
+        return false;
     }
 }
