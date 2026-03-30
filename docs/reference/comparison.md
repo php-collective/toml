@@ -87,31 +87,31 @@ Latest local run on PHP `8.4.18`:
 
 #### decode-baseline
 
-| Library | Ops/s | Median ms |
-|---------|------:|----------:|
-| php-collective | 4736 | 633.51 |
-| yosymfony | 4552 | 659.01 |
-| petalbranch | 4379 | 685.09 |
-| devium | 1620 | 1852.14 |
-| internal | 1464 | 2049.42 |
+| Library        | Ops/s | Median ms |
+|----------------|------:|----------:|
+| php-collective |  5178 |    579.41 |
+| yosymfony      |  4655 |    644.47 |
+| internal       |  4421 |    678.62 |
+| petalbranch    |  4061 |    738.77 |
+| devium         |  1894 |   1584.28 |
 
 #### decode-modern
 
-| Library | Ops/s | Median ms |
-|---------|------:|----------:|
-| php-collective | 5350 | 467.25 |
-| internal | 5294 | 472.25 |
-| petalbranch | 4595 | 544.08 |
-| devium | 1022 | 2445.91 |
+| Library        | Ops/s | Median ms |
+|----------------|------:|----------:|
+| internal       |  5401 |    462.89 |
+| php-collective |  4765 |    524.65 |
+| petalbranch    |  4542 |    550.43 |
+| devium         |  2445 |   1022.41 |
 
 #### encode-baseline
 
-| Library | Ops/s | Median ms |
-|---------|------:|----------:|
-| devium | 93465 | 26.75 |
-| php-collective | 80863 | 30.92 |
-| internal | 34735 | 71.97 |
-| petalbranch | 28996 | 86.22 |
+| Library        | Ops/s | Median ms |
+|----------------|------:|----------:|
+| php-collective | 89365 |     27.98 |
+| devium         | 69522 |     35.96 |
+| internal       | 35637 |     70.15 |
+| petalbranch    | 28311 |     88.30 |
 
 ### Caveats
 
