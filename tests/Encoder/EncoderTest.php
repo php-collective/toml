@@ -558,4 +558,28 @@ final class EncoderTest extends TestCase
         $expected = "hosts = [\n    \"alpha\",\n    \"beta\",\n    \"gamma\",\n]";
         $this->assertStringContainsString($expected, $result);
     }
+
+    public function testDiffFriendlyPreset(): void
+    {
+        $options = EncoderOptions::diffFriendly();
+
+        $this->assertTrue($options->trailingComma);
+        $this->assertSame(ArrayStyle::Auto, $options->arrayStyle);
+    }
+
+    public function testDiffFriendlyPresetProducesExpectedOutput(): void
+    {
+        $encoder = new Encoder(EncoderOptions::diffFriendly());
+
+        $result = $encoder->encode([
+            'small' => [1, 2],
+            'large' => [1, 2, 3, 4],
+        ]);
+
+        // Small array stays inline with trailing comma
+        $this->assertStringContainsString('small = [1, 2,]', $result);
+
+        // Large array becomes multiline with trailing commas
+        $this->assertStringContainsString("large = [\n    1,\n    2,\n    3,\n    4,\n]", $result);
+    }
 }

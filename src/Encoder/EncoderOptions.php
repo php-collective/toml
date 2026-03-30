@@ -22,4 +22,18 @@ final readonly class EncoderOptions
         public string $indent = '    ',
     ) {
     }
+
+    /**
+     * Returns options optimized for minimal diffs in version control.
+     *
+     * - Trailing commas in arrays (adding items doesn't modify previous line)
+     * - Auto multiline arrays (larger arrays use one item per line)
+     */
+    public static function diffFriendly(): self
+    {
+        return new self(
+            trailingComma: true,
+            arrayStyle: ArrayStyle::Auto,
+        );
+    }
 }

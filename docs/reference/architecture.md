@@ -229,7 +229,9 @@ src/
 │   └── ParseResult.php
 ├── Encoder/                    # Encoding
 │   ├── Encoder.php
-│   └── EncoderOptions.php
+│   ├── EncoderOptions.php
+│   ├── ArrayStyle.php
+│   └── DocumentFormattingMode.php
 └── Exception/                  # Exceptions
     ├── ParseException.php
     └── EncodeException.php

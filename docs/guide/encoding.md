@@ -47,13 +47,40 @@ port = 5432
 
 ```php
 use PhpCollective\Toml\Encoder\EncoderOptions;
+use PhpCollective\Toml\Encoder\ArrayStyle;
 
 $options = new EncoderOptions(
     sortKeys: true,
-    newline: "\n",
+    arrayStyle: ArrayStyle::Multiline,
 );
 
 $toml = Toml::encode($data, $options);
+```
+
+See [API Reference](/reference/api#encoderoptions) for the full options list.
+
+### Diff-Friendly Preset
+
+For files under version control, use the `diffFriendly()` preset to minimize diffs when making changes:
+
+```php
+$toml = Toml::encode($data, EncoderOptions::diffFriendly());
+```
+
+This preset enables:
+- **Trailing commas** in arrays (adding items doesn't modify the previous line)
+- **Auto multiline arrays** (arrays with more than 3 items use one item per line)
+
+Example output:
+
+```toml
+small = [1, 2,]
+large = [
+    1,
+    2,
+    3,
+    4,
+]
 ```
 
 ### Sort Keys
@@ -103,6 +130,117 @@ age = 30
 ```
 
 This also filters nulls from arrays and inline tables.
+
+### Integer Grouping
+
+Add underscores to large integers for readability:
+
+```php
+$toml = Toml::encode([
+    'population' => 1000000,
+], new EncoderOptions(integerGrouping: true));
+```
+
+Output:
+
+```toml
+population = 1_000_000
+```
+
+### Trailing Commas
+
+Add trailing commas to inline arrays:
+
+```php
+$toml = Toml::encode([
+    'items' => [1, 2, 3],
+], new EncoderOptions(trailingComma: true));
+```
+
+Output:
+
+```toml
+items = [1, 2, 3,]
+```
+
+### Dotted Keys
+
+Use dotted keys instead of table sections:
+
+```php
+$toml = Toml::encode([
+    'database' => [
+        'host' => 'localhost',
+        'port' => 5432,
+    ],
+], new EncoderOptions(dottedKeys: true));
+```
+
+Output:
+
+```toml
+database.host = "localhost"
+database.port = 5432
+```
+
+### Array Style
+
+Control array formatting with `ArrayStyle`:
+
+```php
+use PhpCollective\Toml\Encoder\ArrayStyle;
+
+// Multiline arrays (one item per line)
+$toml = Toml::encode([
+    'ports' => [8080, 8081, 8082],
+], new EncoderOptions(arrayStyle: ArrayStyle::Multiline));
+```
+
+Output:
+
+```toml
+ports = [
+    8080,
+    8081,
+    8082,
+]
+```
+
+Use `ArrayStyle::Auto` to automatically switch to multiline when arrays exceed a threshold:
+
+```php
+$toml = Toml::encode([
+    'few' => [1, 2],
+    'many' => [1, 2, 3, 4, 5],
+], new EncoderOptions(
+    arrayStyle: ArrayStyle::Auto,
+    arrayAutoThreshold: 3,
+));
+```
+
+Output:
+
+```toml
+few = [1, 2]
+many = [
+    1,
+    2,
+    3,
+    4,
+    5,
+]
+```
+
+Customize indentation with `indent`:
+
+```php
+$toml = Toml::encode([
+    'items' => [1, 2, 3],
+], new EncoderOptions(
+    arrayStyle: ArrayStyle::Multiline,
+    indent: '  ',  // 2 spaces
+));
+```
 
 ## Date and Time Encoding
 

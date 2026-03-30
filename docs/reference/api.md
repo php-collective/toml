@@ -227,6 +227,20 @@ public function __construct(
 )
 ```
 
+### diffFriendly()
+
+```php
+public static function diffFriendly(): self
+```
+
+Returns options optimized for minimal diffs in version control:
+- `trailingComma: true` - adding array items doesn't modify previous line
+- `arrayStyle: ArrayStyle::Auto` - larger arrays use multiline format
+
+```php
+$toml = Toml::encode($data, EncoderOptions::diffFriendly());
+```
+
 ### Options Reference
 
 | Option | Type | Default | Description |
