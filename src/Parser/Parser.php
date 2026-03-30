@@ -128,10 +128,12 @@ final class Parser
             } elseif ($token->is(TokenType::Newline)) {
                 $this->advance();
             } elseif ($token->is(TokenType::Invalid)) {
-                $this->error("Invalid token: `{$token->value}`", $token->span);
+                $hint = $this->getInvalidTokenHint($token->value);
+                $this->error("Invalid token: `{$token->value}`", $token->span, $hint);
                 $this->synchronize();
             } else {
-                $this->error("Unexpected token: `{$token->type->value}`", $token->span);
+                $hint = $this->getUnexpectedTokenHint($token);
+                $this->error("Unexpected token: `{$token->type->value}`", $token->span, $hint);
                 $this->synchronize();
             }
         }
@@ -201,9 +203,11 @@ final class Parser
         if ($value === null) {
             $token = $this->current();
             if ($token->is(TokenType::Invalid)) {
-                $this->error("Invalid token: `{$token->value}`", $token->span);
+                $hint = $this->getInvalidTokenHint($token->value);
+                $this->error("Invalid token: `{$token->value}`", $token->span, $hint);
             } else {
-                $this->error('Expected value', $token->span);
+                $hint = $this->getExpectedValueHint($token);
+                $this->error('Expected value', $token->span, $hint);
             }
             $this->synchronize();
 
@@ -256,7 +260,7 @@ final class Parser
             } elseif ($token->is(TokenType::Integer)) {
                 // Integer-looking tokens can be bare keys when they are decimal integers.
                 if (preg_match('/^[+-]?\d[\d_]*$/', $token->value) !== 1) {
-                    $this->error('Expected key', $token->span);
+                    $this->error('Expected key', $token->span, 'Only decimal integers can be used as bare keys.');
 
                     return null;
                 }
@@ -265,7 +269,8 @@ final class Parser
                 $this->advance();
             } elseif ($token->is(TokenType::Invalid)) {
                 if (preg_match('/^[A-Za-z0-9_-]+$/', $token->value) !== 1) {
-                    $this->error('Expected key', $token->span);
+                    $hint = $this->getExpectedKeyHint($token);
+                    $this->error('Expected key', $token->span, $hint);
 
                     return null;
                 }
@@ -303,7 +308,8 @@ final class Parser
                 $styles[] = KeyStyle::Bare;
                 $this->advance();
             } else {
-                $this->error('Expected key', $token->span);
+                $hint = $this->getExpectedKeyHint($token);
+                $this->error('Expected key', $token->span, $hint);
 
                 return null;
             }
@@ -677,9 +683,93 @@ final class Parser
             return true;
         }
 
-        $this->error("Expected {$type->value}", $this->current()->span);
+        $hint = $this->getExpectHint($type);
+        $this->error("Expected {$type->value}", $this->current()->span, $hint);
 
         return false;
+    }
+
+    private function getExpectHint(TokenType $expected): ?string
+    {
+        $current = $this->current();
+
+        return match ($expected) {
+            TokenType::Equals => $this->getEqualsHint($current),
+            TokenType::RightBracket => 'Unclosed bracket. Table headers use [name] syntax.',
+            TokenType::RightBrace => 'Unclosed brace. Inline tables use { key = value } syntax.',
+            default => null,
+        };
+    }
+
+    private function getEqualsHint(Token $current): ?string
+    {
+        // YAML-style colon
+        if ($current->value === ':') {
+            return 'TOML uses `=` for key-value pairs, not `:`. Example: key = "value"';
+        }
+
+        // Missing equals - bare word after key
+        if ($current->is(TokenType::BareKey, TokenType::BasicString, TokenType::LiteralString)) {
+            return 'Key and value must be separated by `=`. Example: key = "value"';
+        }
+
+        return null;
+    }
+
+    private function getExpectedValueHint(Token $token): ?string
+    {
+        // Check for YAML-style booleans
+        $yamlBooleans = ['yes', 'no', 'on', 'off', 'y', 'n'];
+        if ($token->is(TokenType::BareKey) && in_array(strtolower($token->value), $yamlBooleans, true)) {
+            return "TOML booleans are `true` or `false`, not `{$token->value}`.";
+        }
+
+        // Check for unquoted string (bare key in value position)
+        if ($token->is(TokenType::BareKey)) {
+            return "Strings must be quoted in TOML. Did you mean `\"{$token->value}\"`?";
+        }
+
+        return null;
+    }
+
+    private function getInvalidTokenHint(string $value): ?string
+    {
+        // Check for semver-like patterns (e.g., 1.0.0, 2.1.3)
+        if (preg_match('/^\d+\.\d+\.\d+/', $value) === 1) {
+            return "This looks like a version string. Strings must be quoted: `\"{$value}\"`";
+        }
+
+        // Check for multiple dots in what looks like a number
+        if (preg_match('/^\d+\./', $value) === 1 && substr_count($value, '.') > 1) {
+            return 'Numbers can only have one decimal point. If this is a string, it must be quoted.';
+        }
+
+        return null;
+    }
+
+    private function getUnexpectedTokenHint(Token $token): ?string
+    {
+        // Equals without a key
+        if ($token->is(TokenType::Equals)) {
+            return 'A key is required before `=`. Example: key = "value"';
+        }
+
+        return null;
+    }
+
+    private function getExpectedKeyHint(Token $token): ?string
+    {
+        // Consecutive dots (empty key segment)
+        if ($token->is(TokenType::Dot)) {
+            return 'Empty key segment. Keys cannot have consecutive dots.';
+        }
+
+        // Check for special characters that aren't allowed in bare keys
+        if ($token->is(TokenType::Invalid) && preg_match('/[^A-Za-z0-9_-]/', $token->value) === 1) {
+            return 'Bare keys can only contain A-Za-z0-9_-. Use quotes for other characters.';
+        }
+
+        return null;
     }
 
     private function skipTrivia(): void
@@ -736,6 +826,7 @@ final class Parser
     private function checkKeyValueTerminator(): void
     {
         $token = $this->current();
+        $hintToken = $token;
 
         // Direct valid terminators
         if ($token->is(TokenType::Newline, TokenType::Eof, TokenType::Comment)) {
@@ -755,13 +846,26 @@ final class Parser
                 if ($nextToken->is(TokenType::Newline, TokenType::Eof, TokenType::Comment)) {
                     return;
                 }
+                // Use the actual problematic token for the hint
+                $hintToken = $nextToken;
             } else {
                 // End of tokens
                 return;
             }
         }
 
-        $this->error('Expected newline or end of input after value', $token->span);
+        $hint = $this->getKeyValueTerminatorHint($hintToken);
+        $this->error('Expected newline or end of input after value', $token->span, $hint);
+    }
+
+    private function getKeyValueTerminatorHint(Token $token): ?string
+    {
+        // Check if it looks like another key-value pair on the same line
+        if ($token->is(TokenType::BareKey, TokenType::BasicString, TokenType::LiteralString)) {
+            return 'Each key-value pair must be on its own line.';
+        }
+
+        return null;
     }
 
     private function skipTriviaInCollection(): void
