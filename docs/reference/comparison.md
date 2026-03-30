@@ -89,29 +89,31 @@ Latest local run on PHP `8.4.18`:
 
 | Library        | Ops/s | Median ms |
 |----------------|------:|----------:|
-| php-collective |  5178 |    579.41 |
-| yosymfony      |  4655 |    644.47 |
-| internal       |  4421 |    678.62 |
-| petalbranch    |  4061 |    738.77 |
-| devium         |  1894 |   1584.28 |
+| php-collective |  4900 |       612 |
+| yosymfony      |  4500 |       667 |
+| internal       |  4400 |       682 |
+| petalbranch    |  4100 |       732 |
+| devium         |  2000 |      1500 |
 
 #### decode-modern
 
 | Library        | Ops/s | Median ms |
 |----------------|------:|----------:|
-| internal       |  5401 |    462.89 |
-| php-collective |  4765 |    524.65 |
-| petalbranch    |  4542 |    550.43 |
-| devium         |  2445 |   1022.41 |
+| internal       |  5100 |       490 |
+| php-collective |  4800 |       521 |
+| petalbranch    |  4200 |       595 |
+| devium         |  2200 |      1136 |
 
 #### encode-baseline
 
 | Library        | Ops/s | Median ms |
 |----------------|------:|----------:|
-| php-collective | 89365 |     27.98 |
-| devium         | 69522 |     35.96 |
-| internal       | 35637 |     70.15 |
-| petalbranch    | 28311 |     88.30 |
+| php-collective | 84000 |        30 |
+| devium         | 77500 |        32 |
+| internal       | 34000 |        74 |
+| petalbranch    | 28000 |        89 |
+
+The values are now rounded averages, which better represent typical performance than any single run.
 
 ### Caveats
 
