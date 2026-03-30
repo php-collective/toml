@@ -88,7 +88,10 @@ final class Encoder
                 continue;
             }
             if (!is_array($value) || $this->isInlineArray($value)) {
-                $lines[] = $this->encodeKey((string)$key) . ' = ' . $this->encodeValue($value);
+                $keyPath = $this->options->dottedKeys && $path !== []
+                    ? $this->encodePath([...$path, (string)$key])
+                    : $this->encodeKey((string)$key);
+                $lines[] = $keyPath . ' = ' . $this->encodeValue($value);
             }
         }
 
@@ -104,6 +107,8 @@ final class Encoder
                         $lines[] = '[[' . $this->encodePath($newPath) . ']]';
                         $this->encodeTable($item, $newPath, $lines);
                     }
+                } elseif ($this->options->dottedKeys) {
+                    $this->encodeTable($value, $newPath, $lines);
                 } else {
                     $lines[] = '';
                     $lines[] = '[' . $this->encodePath($newPath) . ']';
@@ -124,7 +129,7 @@ final class Encoder
         }
 
         if (is_int($value)) {
-            return (string)$value;
+            return $this->encodeInteger($value);
         }
 
         if (is_float($value)) {
@@ -1200,6 +1205,21 @@ final class Encoder
         return str_ends_with($value, "\n") || str_ends_with($value, "\r\n");
     }
 
+    private function encodeInteger(int $value): string
+    {
+        if (!$this->options->integerGrouping) {
+            return (string)$value;
+        }
+
+        $sign = $value < 0 ? '-' : '';
+        $absolute = (string)abs($value);
+
+        // Add underscores every 3 digits from the right
+        $grouped = preg_replace('/\B(?=(\d{3})+(?!\d))/', '_', $absolute);
+
+        return $sign . $grouped;
+    }
+
     private function encodeString(string $value): string
     {
         // Use basic string with escaping
@@ -1222,7 +1242,9 @@ final class Encoder
         }
         $items = array_map(fn ($v) => $this->encodeValue($v), $value);
 
-        return '[' . implode(', ', $items) . ']';
+        $trailing = $this->options->trailingComma && $items !== [] ? ',' : '';
+
+        return '[' . implode(', ', $items) . $trailing . ']';
     }
 
     /**
