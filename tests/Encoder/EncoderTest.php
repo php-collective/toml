@@ -321,4 +321,133 @@ final class EncoderTest extends TestCase
 
         $this->assertSame('count   =   1' . "\n", $result);
     }
+
+    public function testEncodeIntegerGrouping(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(integerGrouping: true));
+
+        $result = $encoder->encode([
+            'small' => 42,
+            'medium' => 1000,
+            'large' => 1000000,
+            'huge' => 1234567890,
+            'negative' => -9876543,
+        ]);
+
+        $this->assertStringContainsString('small = 42', $result);
+        $this->assertStringContainsString('medium = 1_000', $result);
+        $this->assertStringContainsString('large = 1_000_000', $result);
+        $this->assertStringContainsString('huge = 1_234_567_890', $result);
+        $this->assertStringContainsString('negative = -9_876_543', $result);
+    }
+
+    public function testEncodeIntegerGroupingDisabledByDefault(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'large' => 1000000,
+        ]);
+
+        $this->assertStringContainsString('large = 1000000', $result);
+    }
+
+    public function testEncodeTrailingComma(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(trailingComma: true));
+
+        $result = $encoder->encode([
+            'items' => [1, 2, 3],
+        ]);
+
+        $this->assertStringContainsString('items = [1, 2, 3,]', $result);
+    }
+
+    public function testEncodeTrailingCommaEmptyArray(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(trailingComma: true));
+
+        $result = $encoder->encode([
+            'empty' => [],
+        ]);
+
+        $this->assertStringContainsString('empty = []', $result);
+    }
+
+    public function testEncodeTrailingCommaDisabledByDefault(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'items' => [1, 2, 3],
+        ]);
+
+        $this->assertStringContainsString('items = [1, 2, 3]', $result);
+        $this->assertStringNotContainsString('[1, 2, 3,]', $result);
+    }
+
+    public function testEncodeDottedKeys(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(dottedKeys: true));
+
+        $result = $encoder->encode([
+            'database' => [
+                'host' => 'localhost',
+                'port' => 5432,
+            ],
+        ]);
+
+        $this->assertStringContainsString('database.host = "localhost"', $result);
+        $this->assertStringContainsString('database.port = 5432', $result);
+        $this->assertStringNotContainsString('[database]', $result);
+    }
+
+    public function testEncodeDottedKeysDeepNesting(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(dottedKeys: true));
+
+        $result = $encoder->encode([
+            'a' => [
+                'b' => [
+                    'c' => 'value',
+                ],
+            ],
+        ]);
+
+        $this->assertStringContainsString('a.b.c = "value"', $result);
+        $this->assertStringNotContainsString('[a]', $result);
+        $this->assertStringNotContainsString('[a.b]', $result);
+    }
+
+    public function testEncodeDottedKeysWithArrayOfTables(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(dottedKeys: true));
+
+        $result = $encoder->encode([
+            'servers' => [
+                ['name' => 'alpha'],
+                ['name' => 'beta'],
+            ],
+        ]);
+
+        // Array of tables still requires [[]] syntax
+        $this->assertStringContainsString('[[servers]]', $result);
+        $this->assertStringContainsString('name = "alpha"', $result);
+        $this->assertStringContainsString('name = "beta"', $result);
+    }
+
+    public function testEncodeDottedKeysDisabledByDefault(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'database' => [
+                'host' => 'localhost',
+            ],
+        ]);
+
+        $this->assertStringContainsString('[database]', $result);
+        $this->assertStringContainsString('host = "localhost"', $result);
+        $this->assertStringNotContainsString('database.host', $result);
+    }
 }

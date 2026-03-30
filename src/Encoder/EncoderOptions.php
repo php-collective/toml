@@ -14,6 +14,9 @@ final readonly class EncoderOptions
         public DocumentFormattingMode $documentFormatting = DocumentFormattingMode::Normalized,
         public bool $skipNulls = false,
         public TomlVersion $version = TomlVersion::V11,
+        public bool $integerGrouping = false,
+        public bool $trailingComma = false,
+        public bool $dottedKeys = false,
     ) {
     }
 }
