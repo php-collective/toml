@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpCollective\Toml\Test\Encoder;
 
 use DateTimeImmutable;
+use PhpCollective\Toml\Encoder\ArrayStyle;
 use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\Encoder;
 use PhpCollective\Toml\Encoder\EncoderOptions;
@@ -449,5 +450,112 @@ final class EncoderTest extends TestCase
         $this->assertStringContainsString('[database]', $result);
         $this->assertStringContainsString('host = "localhost"', $result);
         $this->assertStringNotContainsString('database.host', $result);
+    }
+
+    public function testEncodeArrayStyleInlineByDefault(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'items' => [1, 2, 3, 4, 5],
+        ]);
+
+        $this->assertStringContainsString('items = [1, 2, 3, 4, 5]', $result);
+        $this->assertStringNotContainsString("\n    ", $result);
+    }
+
+    public function testEncodeArrayStyleMultiline(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(arrayStyle: ArrayStyle::Multiline));
+
+        $result = $encoder->encode([
+            'items' => [1, 2, 3],
+        ]);
+
+        $expected = "items = [\n    1,\n    2,\n    3,\n]";
+        $this->assertStringContainsString($expected, $result);
+    }
+
+    public function testEncodeArrayStyleMultilineEmpty(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(arrayStyle: ArrayStyle::Multiline));
+
+        $result = $encoder->encode([
+            'empty' => [],
+        ]);
+
+        $this->assertStringContainsString('empty = []', $result);
+    }
+
+    public function testEncodeArrayStyleAutoAboveThreshold(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(
+            arrayStyle: ArrayStyle::Auto,
+            arrayAutoThreshold: 3,
+        ));
+
+        $result = $encoder->encode([
+            'items' => [1, 2, 3, 4],
+        ]);
+
+        $expected = "items = [\n    1,\n    2,\n    3,\n    4,\n]";
+        $this->assertStringContainsString($expected, $result);
+    }
+
+    public function testEncodeArrayStyleAutoBelowThreshold(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(
+            arrayStyle: ArrayStyle::Auto,
+            arrayAutoThreshold: 3,
+        ));
+
+        $result = $encoder->encode([
+            'items' => [1, 2, 3],
+        ]);
+
+        $this->assertStringContainsString('items = [1, 2, 3]', $result);
+        $this->assertStringNotContainsString("[\n", $result);
+    }
+
+    public function testEncodeArrayStyleCustomIndent(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(
+            arrayStyle: ArrayStyle::Multiline,
+            indent: '  ',
+        ));
+
+        $result = $encoder->encode([
+            'items' => [1, 2],
+        ]);
+
+        $expected = "items = [\n  1,\n  2,\n]";
+        $this->assertStringContainsString($expected, $result);
+    }
+
+    public function testEncodeArrayStyleWithTabIndent(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(
+            arrayStyle: ArrayStyle::Multiline,
+            indent: "\t",
+        ));
+
+        $result = $encoder->encode([
+            'items' => [1, 2],
+        ]);
+
+        $expected = "items = [\n\t1,\n\t2,\n]";
+        $this->assertStringContainsString($expected, $result);
+    }
+
+    public function testEncodeArrayStyleMultilineWithStrings(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(arrayStyle: ArrayStyle::Multiline));
+
+        $result = $encoder->encode([
+            'hosts' => ['alpha', 'beta', 'gamma'],
+        ]);
+
+        $expected = "hosts = [\n    \"alpha\",\n    \"beta\",\n    \"gamma\",\n]";
+        $this->assertStringContainsString($expected, $result);
     }
 }

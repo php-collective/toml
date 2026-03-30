@@ -218,14 +218,110 @@ public function __construct(
     DocumentFormattingMode $documentFormatting = DocumentFormattingMode::Normalized,
     bool $skipNulls = false,
     TomlVersion $version = TomlVersion::V11,
+    bool $integerGrouping = false,
+    bool $trailingComma = false,
+    bool $dottedKeys = false,
+    ArrayStyle $arrayStyle = ArrayStyle::Inline,
+    int $arrayAutoThreshold = 3,
+    string $indent = '    ',
 )
 ```
 
-- `$sortKeys`: Sort keys alphabetically in output
-- `$newline`: Newline sequence to use during encoding
-- `$documentFormatting`: `Normalized` or `SourceAware` for `encodeDocument()`
-- `$skipNulls`: Omit `null` values during `encode()` instead of throwing `EncodeException`
-- `$version`: default TOML output mode. Use `TomlVersion::V10` for strict TOML 1.0 encoding rules
+### Options Reference
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `sortKeys` | `bool` | `false` | Sort keys alphabetically in output |
+| `newline` | `string` | `"\n"` | Newline sequence to use (`"\n"` or `"\r\n"`) |
+| `documentFormatting` | `DocumentFormattingMode` | `Normalized` | `Normalized` or `SourceAware` for `encodeDocument()` |
+| `skipNulls` | `bool` | `false` | Omit `null` values instead of throwing `EncodeException` |
+| `version` | `TomlVersion` | `V11` | TOML version for output rules |
+| `integerGrouping` | `bool` | `false` | Add underscores to large integers (e.g., `1_000_000`) |
+| `trailingComma` | `bool` | `false` | Add trailing commas to inline arrays |
+| `dottedKeys` | `bool` | `false` | Use dotted keys instead of table sections |
+| `arrayStyle` | `ArrayStyle` | `Inline` | Array formatting style (see below) |
+| `arrayAutoThreshold` | `int` | `3` | Item count threshold for `ArrayStyle::Auto` |
+| `indent` | `string` | `'    '` | Indentation string for multiline arrays |
+
+### ArrayStyle
+
+Controls how arrays are formatted in output.
+
+```php
+use PhpCollective\Toml\Encoder\ArrayStyle;
+```
+
+| Style | Description |
+|-------|-------------|
+| `ArrayStyle::Inline` | Arrays on a single line: `[1, 2, 3]` |
+| `ArrayStyle::Multiline` | One item per line with indentation |
+| `ArrayStyle::Auto` | Multiline if items exceed `arrayAutoThreshold` |
+
+**Examples:**
+
+```php
+// Inline (default)
+$toml = Toml::encode(['ports' => [8080, 8081, 8082]]);
+// ports = [8080, 8081, 8082]
+
+// Multiline
+$toml = Toml::encode(
+    ['ports' => [8080, 8081, 8082]],
+    new EncoderOptions(arrayStyle: ArrayStyle::Multiline),
+);
+// ports = [
+//     8080,
+//     8081,
+//     8082,
+// ]
+
+// Auto (multiline when > 3 items)
+$toml = Toml::encode(
+    ['ports' => [8080, 8081, 8082, 8083, 8084]],
+    new EncoderOptions(arrayStyle: ArrayStyle::Auto, arrayAutoThreshold: 3),
+);
+// ports = [
+//     8080,
+//     8081,
+//     8082,
+//     8083,
+//     8084,
+// ]
+
+// Custom indent (2 spaces)
+$toml = Toml::encode(
+    ['items' => [1, 2, 3]],
+    new EncoderOptions(arrayStyle: ArrayStyle::Multiline, indent: '  '),
+);
+// items = [
+//   1,
+//   2,
+//   3,
+// ]
+```
+
+### Integer Grouping
+
+```php
+$toml = Toml::encode(
+    ['large' => 1000000],
+    new EncoderOptions(integerGrouping: true),
+);
+// large = 1_000_000
+```
+
+### Dotted Keys
+
+```php
+$toml = Toml::encode(
+    ['database' => ['host' => 'localhost', 'port' => 5432]],
+    new EncoderOptions(dottedKeys: true),
+);
+// database.host = "localhost"
+// database.port = 5432
+```
+
+### TOML 1.0 Mode
 
 In strict TOML 1.0 mode, `encode()` normalizes local times and local datetimes to include seconds where possible. `encodeDocument()` in `DocumentFormattingMode::SourceAware` throws `EncodeException` if preserving the parsed source would keep TOML 1.1-only syntax.
 
