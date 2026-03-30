@@ -183,11 +183,9 @@ For explicit local temporal encoding, use:
 
 | Feature | php-collective/toml | Others |
 |---------|---------------------|--------|
-| Support matrix | Yes | Varies |
 | Error Recovery | Yes | No |
 | Multiple Errors | Yes | No |
 | AST Access | Yes | Limited/No |
 | Round-trip formatting preservation | Partial | Varies |
-| PHP 8.2+ Features | Yes | Varies |
 
 See [Limitations](https://php-collective.github.io/toml/reference/limitations) for details.
