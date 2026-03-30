@@ -26,7 +26,8 @@ This is intentionally a coarse product-level snapshot, not a replacement for the
 | AST access | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Source-aware or format-preserving workflow | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Collected diagnostics/tooling focus | ✅ | ? | ❌ | ❌ | ❌ |
-| Normalized encode by default | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Roundtrip capable | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Canonical/normalized mode | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 `?` means the public docs were not clear enough to state this confidently.
 
