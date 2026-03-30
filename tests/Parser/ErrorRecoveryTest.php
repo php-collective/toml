@@ -35,6 +35,7 @@ TOML;
 
         // Both document items should be parsed
         $doc = $result->getDocument();
+        $this->assertNotNull($doc);
         $this->assertCount(2, $doc->items);
 
         $this->assertInstanceOf(KeyValue::class, $doc->items[0]);
@@ -56,6 +57,7 @@ TOML;
 
         // The inline table should have 2 items: a and c (b failed)
         $doc = $result->getDocument();
+        $this->assertNotNull($doc);
         $this->assertCount(1, $doc->items);
         $this->assertInstanceOf(KeyValue::class, $doc->items[0]);
 
@@ -83,6 +85,7 @@ TOML;
 
         // Both document items should be parsed
         $doc = $result->getDocument();
+        $this->assertNotNull($doc);
         $this->assertCount(2, $doc->items);
 
         $this->assertInstanceOf(KeyValue::class, $doc->items[0]);
@@ -108,6 +111,7 @@ TOML;
 
         // Both document items should be parsed
         $doc = $result->getDocument();
+        $this->assertNotNull($doc);
         $this->assertCount(2, $doc->items);
 
         $this->assertInstanceOf(KeyValue::class, $doc->items[0]);
@@ -133,6 +137,7 @@ TOML;
 
         // Both document items should be parsed
         $doc = $result->getDocument();
+        $this->assertNotNull($doc);
         $this->assertCount(2, $doc->items);
     }
 
@@ -150,6 +155,7 @@ TOML;
 
         // Both document items should be parsed
         $doc = $result->getDocument();
+        $this->assertNotNull($doc);
         $this->assertCount(2, $doc->items);
     }
 
@@ -169,6 +175,7 @@ TOML;
 
         // The key-value pairs should be recovered
         $doc = $result->getDocument();
+        $this->assertNotNull($doc);
         $this->assertGreaterThanOrEqual(2, count($doc->items));
     }
 
@@ -183,6 +190,7 @@ TOML;
 
         // The inline table should have 1 item: c (a and b failed)
         $doc = $result->getDocument();
+        $this->assertNotNull($doc);
         $this->assertCount(1, $doc->items);
         $this->assertInstanceOf(KeyValue::class, $doc->items[0]);
 
@@ -204,6 +212,7 @@ TOML;
 
         // Array should still be created
         $doc = $result->getDocument();
+        $this->assertNotNull($doc);
         $this->assertCount(1, $doc->items);
         $this->assertInstanceOf(KeyValue::class, $doc->items[0]);
 
