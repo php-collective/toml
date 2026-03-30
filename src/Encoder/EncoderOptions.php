@@ -17,6 +17,9 @@ final readonly class EncoderOptions
         public bool $integerGrouping = false,
         public bool $trailingComma = false,
         public bool $dottedKeys = false,
+        public ArrayStyle $arrayStyle = ArrayStyle::Inline,
+        public int $arrayAutoThreshold = 3,
+        public string $indent = '    ',
     ) {
     }
 }

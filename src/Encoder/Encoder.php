@@ -1240,11 +1240,48 @@ final class Encoder
         if ($this->options->skipNulls) {
             $value = array_filter($value, static fn ($v) => $v !== null);
         }
+
         $items = array_map(fn ($v) => $this->encodeValue($v), $value);
+
+        if ($this->shouldUseMultilineArray($value)) {
+            return $this->encodeMultilineArrayFromValues($items);
+        }
 
         $trailing = $this->options->trailingComma && $items !== [] ? ',' : '';
 
         return '[' . implode(', ', $items) . $trailing . ']';
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private function shouldUseMultilineArray(array $value): bool
+    {
+        return match ($this->options->arrayStyle) {
+            ArrayStyle::Inline => false,
+            ArrayStyle::Multiline => true,
+            ArrayStyle::Auto => count($value) > $this->options->arrayAutoThreshold,
+        };
+    }
+
+    /**
+     * @param array<string> $items
+     */
+    private function encodeMultilineArrayFromValues(array $items): string
+    {
+        if ($items === []) {
+            return '[]';
+        }
+
+        $newline = $this->options->newline;
+        $indent = $this->options->indent;
+        $output = '[' . $newline;
+
+        foreach ($items as $item) {
+            $output .= $indent . $item . ',' . $newline;
+        }
+
+        return $output . ']';
     }
 
     /**
