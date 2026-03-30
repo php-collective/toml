@@ -12,7 +12,7 @@ For exact current support, round-trip guarantees, and `toml-test` numbers for th
 - AST access
 - collected parse errors for tooling workflows
 - normalized encoding by default
-- source-aware encoding as explicit opt-in
+- source-aware and format-preserving encoding as explicit opt-in
 
 It is not positioned as a full TOML formatter. In `DocumentFormattingMode::SourceAware`, the encoder aims for minimal diffs where the AST preserves enough local formatting evidence.
 
@@ -20,16 +20,14 @@ It is not positioned as a full TOML formatter. In `DocumentFormattingMode::Sourc
 
 This is intentionally a coarse product-level snapshot, not a replacement for the [Support Matrix](https://php-collective.github.io/toml/reference/support-matrix).
 
-| Capability | php-collective | PetalBranch | internal/toml | devium | yosymfony |
-|-----------|----------------|-------------|---------------|--------|-----------|
-| Modern TOML focus | ✅ | ✅ | ✅ | ✅ | ❌ |
-| AST access | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Source-aware or format-preserving workflow | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Collected diagnostics/tooling focus | ✅ | ? | ❌ | ❌ | ❌ |
-| Roundtrip capable | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Canonical/normalized mode | ✅ | ❌ | ❌ | ❌ | ❌ |
-
-`?` means the public docs were not clear enough to state this confidently.
+| Capability                                | php-collective | PetalBranch | internal/toml | devium | yosymfony |
+|-------------------------------------------|----------------|-------------|---------------|--------|-----------|
+| Modern TOML focus                         | ✅              | ✅           | ✅             | ✅      | ❌         |
+| AST access                                | ✅              | ✅           | ✅             | ❌      | ❌         |
+| Format-preserving workflow (minimal diff) | ✅              | ✅           | ✅             | ❌      | ❌         |
+| Canonical/normalized mode                 | ✅              | ❌           | ❌             | ❌      | ❌         |
+| Rich error diagnostics                    | ✅              | ✅           | ❌             | ❌      | ❌         |
+| Multi-error collection                    | ✅              | ❌           | ❌             | ❌      | ❌         |
 
 ## Ecosystem Notes
 
