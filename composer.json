@@ -16,7 +16,7 @@
             "name": "Mark Scherer"
         }
     ],
-    "homepage": "https://github.com/php-collective/toml",
+    "homepage": "https://php-collective.github.io/toml/",
     "require": {
         "php": ">=8.2",
         "symfony/polyfill-mbstring": "^1.30"
