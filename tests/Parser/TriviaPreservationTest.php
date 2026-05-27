@@ -20,7 +20,8 @@ final class TriviaPreservationTest extends TestCase
 # Header comment
 
 title = "Example"
-TOML, true);
+TOML
+, true);
 
         $item = $doc->items[0];
         $this->assertInstanceOf(KeyValue::class, $item);
@@ -49,7 +50,8 @@ TOML, true);
 [server] # section comment
 # child comment
 host = "localhost"
-TOML, true);
+TOML
+, true);
 
         $table = $doc->items[0];
         $this->assertInstanceOf(Table::class, $table);
