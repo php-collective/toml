@@ -29,7 +29,8 @@ values = [
   1,
   2,
 ]
-TOML, true);
+TOML
+, true);
 
         $item = $doc->items[0];
         $this->assertInstanceOf(KeyValue::class, $item);
@@ -45,7 +46,8 @@ values = [
   2,
   3,
 ]
-TOML, $encoded);
+TOML
+, $encoded);
     }
 
     public function testEncodeDocumentUsesCanonicalSpacingForInsertedInlineTableItem(): void
@@ -213,7 +215,8 @@ TOML, $encoded);
 items = [
   { dims = [ 1 ,2,3 ] },
 ]
-TOML, true);
+TOML
+, true);
 
         $item = $doc->items[0];
         $this->assertInstanceOf(KeyValue::class, $item);
@@ -229,7 +232,8 @@ TOML, true);
 items = [
   { dims = [ 1 ,3] },
 ]
-TOML, $encoded);
+TOML
+, $encoded);
     }
 
     public function testEncodeDocumentKeepsOuterMultilineLayoutWhileCanonicalizingNestedInlineTableReplacement(): void
@@ -238,7 +242,8 @@ TOML, $encoded);
 items = [
   { point = { x = 1,  y = 2 } },
 ]
-TOML, true);
+TOML
+, true);
 
         $item = $doc->items[0];
         $this->assertInstanceOf(KeyValue::class, $item);
@@ -258,7 +263,8 @@ TOML, true);
 items = [
   { point = { x = 1,  z = 9} },
 ]
-TOML, $encoded);
+TOML
+, $encoded);
     }
 
     public function testEncodeDocumentPreservesHeaderSpacingForTableKeyEdit(): void
@@ -266,7 +272,8 @@ TOML, $encoded);
         $doc = Toml::parse(<<<'TOML'
 [ server . "old.key" ]
 value = 1
-TOML, true);
+TOML
+, true);
 
         $table = $doc->items[0];
         $this->assertInstanceOf(Table::class, $table);
@@ -278,7 +285,8 @@ TOML, true);
         $this->assertSame(<<<'TOML'
 [ server . "new.key" ]
 value = 1
-TOML, $encoded);
+TOML
+, $encoded);
     }
 
     public function testEncodeDocumentPreservesHeaderSpacingForTableKeyStyleChange(): void
@@ -286,7 +294,8 @@ TOML, $encoded);
         $doc = Toml::parse(<<<'TOML'
 [ server . child ]
 value = 1
-TOML, true);
+TOML
+, true);
 
         $table = $doc->items[0];
         $this->assertInstanceOf(Table::class, $table);
@@ -299,7 +308,8 @@ TOML, true);
         $this->assertSame(<<<'TOML'
 [ server . "new child" ]
 value = 1
-TOML, $encoded);
+TOML
+, $encoded);
     }
 
     public function testEncodeDocumentPreservesDottedKeySeparatorSpacingForKeyEdit(): void
@@ -357,7 +367,8 @@ TOML . "\n", $encoded);
         $doc = Toml::parse(<<<'TOML'
 [[ products . "old.name" ]]
 value = 1
-TOML, true);
+TOML
+, true);
 
         $table = $doc->items[0];
         $this->assertInstanceOf(Table::class, $table);
@@ -369,7 +380,8 @@ TOML, true);
         $this->assertSame(<<<'TOML'
 [[ products . "new.name" ]]
 value = 1
-TOML, $encoded);
+TOML
+, $encoded);
     }
 
     public function testEncodeDocumentPreservesArrayTableHeaderSpacingForKeyStyleChange(): void
@@ -377,7 +389,8 @@ TOML, $encoded);
         $doc = Toml::parse(<<<'TOML'
 [[ products . "old name" ]]
 value = 1
-TOML, true);
+TOML
+, true);
 
         $table = $doc->items[0];
         $this->assertInstanceOf(Table::class, $table);
@@ -390,7 +403,8 @@ TOML, true);
         $this->assertSame(<<<'TOML'
 [[ products . 'new name' ]]
 value = 1
-TOML, $encoded);
+TOML
+, $encoded);
     }
 
     public function testEncodeDocumentPreservesLiteralKeyStyleAndAssignmentSpacingForKeyEdit(): void
@@ -443,7 +457,8 @@ TOML, $encoded);
         $doc = Toml::parse(<<<'TOML'
 [[ products ]]
 name . "old"   =   1
-TOML, true);
+TOML
+, true);
 
         $table = $doc->items[0];
         $this->assertInstanceOf(Table::class, $table);
@@ -456,7 +471,8 @@ TOML, true);
         $this->assertSame(<<<'TOML'
 [[ products ]]
 name . "new"   =   1
-TOML, $encoded);
+TOML
+, $encoded);
     }
 
     public function testEncodeDocumentPreservesDottedKeySpacingInsideArrayTableEntryStyleChange(): void
@@ -464,7 +480,8 @@ TOML, $encoded);
         $doc = Toml::parse(<<<'TOML'
 [[ products ]]
 name . child   =   1
-TOML, true);
+TOML
+, true);
 
         $table = $doc->items[0];
         $this->assertInstanceOf(Table::class, $table);
@@ -478,7 +495,8 @@ TOML, true);
         $this->assertSame(<<<'TOML'
 [[ products ]]
 name . "new child"   =   1
-TOML, $encoded);
+TOML
+, $encoded);
     }
 
     private function span(): Span
