@@ -10,7 +10,7 @@ Install via Composer:
 composer require php-collective/toml
 ```
 
-**Requirements:** PHP 8.2+
+**Requirements:** PHP 8.1+
 
 ## Quick Start
 

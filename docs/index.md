@@ -4,7 +4,7 @@ layout: home
 hero:
   name: PHP Toml
   text: TOML 1.0/1.1 Parser
-  tagline: A modern PHP 8.2+ parser and encoder with AST access, trivia preservation, and error recovery
+  tagline: A modern PHP 8.1+ parser and encoder with AST access, trivia preservation, and error recovery
   image:
     src: /logo.svg
     alt: PHP Toml
@@ -31,7 +31,7 @@ features:
     details: Full abstract syntax tree for analysis, transformation, or editor integrations
   - icon: ⚡
     title: Zero Dependencies
-    details: No required extensions - pure PHP 8.2+ with optional php-ds for performance
+    details: No required extensions - pure PHP 8.1+ with optional php-ds for performance
   - icon: 🔄
     title: Structured Re-Encode
     details: Parse TOML to an AST, modify nodes, and re-encode with partial trivia and layout preservation
