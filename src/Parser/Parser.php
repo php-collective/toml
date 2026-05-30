@@ -720,10 +720,11 @@ final class Parser
         $closingTrivia = [];
         $hasTrailingComma = false;
         $nextLeadingTrivia = $openingTrivia;
+        $hasInlineTableLayoutNewline = $this->triviaContainsNewline($openingTrivia);
 
         while (!$this->check(TokenType::RightBrace) && !$this->isAtEnd()) {
             if (!$this->preserveTrivia) {
-                $this->skipTriviaInCollection();
+                $hasInlineTableLayoutNewline = $this->skipTriviaInCollection() || $hasInlineTableLayoutNewline;
             }
 
             if ($this->check(TokenType::RightBrace)) {
@@ -750,8 +751,9 @@ final class Parser
             }
 
             $trailingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
+            $hasInlineTableLayoutNewline = $this->triviaContainsNewline($trailingTrivia) || $hasInlineTableLayoutNewline;
             if (!$this->preserveTrivia) {
-                $this->skipTriviaInCollection();
+                $hasInlineTableLayoutNewline = $this->skipTriviaInCollection() || $hasInlineTableLayoutNewline;
             }
 
             if (!$this->check(TokenType::RightBrace)) {
@@ -763,8 +765,9 @@ final class Parser
                 }
 
                 $nextLeadingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
+                $hasInlineTableLayoutNewline = $this->triviaContainsNewline($nextLeadingTrivia) || $hasInlineTableLayoutNewline;
                 if (!$this->preserveTrivia) {
-                    $this->skipTriviaInCollection();
+                    $hasInlineTableLayoutNewline = $this->skipTriviaInCollection() || $hasInlineTableLayoutNewline;
                 }
                 if ($this->check(TokenType::RightBrace)) {
                     $hasTrailingComma = true;
@@ -783,7 +786,7 @@ final class Parser
         array_pop($this->contextStack);
 
         if ($this->version === TomlVersion::V10) {
-            if ($this->inlineTableIsMultiline($start)) {
+            if ($hasInlineTableLayoutNewline) {
                 $this->error('Multiline inline tables require TOML 1.1', $span);
             }
 
@@ -802,11 +805,6 @@ final class Parser
             $this->slice($span),
             $this->inferSingleLineInlineTableStyle($items, $openingTrivia, $closingTrivia),
         );
-    }
-
-    private function inlineTableIsMultiline(Span $start): bool
-    {
-        return $start->line !== $this->previous()->span->line;
     }
 
     // Helper methods
@@ -1052,11 +1050,16 @@ final class Parser
         return null;
     }
 
-    private function skipTriviaInCollection(): void
+    private function skipTriviaInCollection(): bool
     {
+        $hasNewline = false;
+
         while ($this->check(TokenType::Whitespace) || $this->check(TokenType::Comment) || $this->check(TokenType::Newline)) {
+            $hasNewline = $this->check(TokenType::Newline) || $hasNewline;
             $this->advance();
         }
+
+        return $hasNewline;
     }
 
     /**
@@ -1103,6 +1106,20 @@ final class Parser
         }
 
         return $trivia;
+    }
+
+    /**
+     * @param array<\PhpCollective\Toml\Ast\Trivia> $trivia
+     */
+    private function triviaContainsNewline(array $trivia): bool
+    {
+        foreach ($trivia as $item) {
+            if ($item->kind === TriviaKind::Newline) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function toTrivia(Token $token): Trivia

@@ -108,6 +108,12 @@ Toml::encodeFile('/path/to/config.toml', $array);
 // With options - e.g. omit nulls instead of throwing
 $toml = Toml::encode($array, new EncoderOptions(skipNulls: true));
 
+// Opt into multiline strings for long scalar strings
+$toml = Toml::encode($array, new EncoderOptions(multilineThreshold: 80));
+
+// Opt into inline tables for small flat nested arrays
+$toml = Toml::encode($array, new EncoderOptions(inlineTableThreshold: 3));
+
 // Strict TOML 1.0 output
 $toml = Toml::encode($array, new EncoderOptions(version: TomlVersion::V10));
 
@@ -129,6 +135,8 @@ $toml = Toml::encodeDocument(
 
 `DocumentFormattingMode::SourceAware` is lossless for unchanged parsed regions and uses local fallback rules for edited ones. See the [Compatibility](https://php-collective.github.io/toml/reference/compatibility) page for the exact editing contract.
 `skipNulls` lets `encode()` omit nulls instead of throwing.
+`multilineThreshold` (`?int`, default `null`) keeps current single-line strings when unset; when set, scalar strings longer than the threshold are encoded as multiline basic strings.
+`inlineTableThreshold` (`?int`, default `null`) keeps nested tables as table sections when unset; when set, flat nested arrays with at most that many keys are encoded inline, for example `point = { x = 1, y = 2 }`.
 
 ## Error Handling
 

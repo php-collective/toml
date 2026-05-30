@@ -234,7 +234,7 @@ point = { x = 1, y = 2 }
 animal = { type.name = "pug" }
 ```
 
-TOML 1.1 also allows multiline inline tables and trailing commas:
+TOML 1.1 also allows multiline inline-table layout and trailing commas:
 
 ```toml
 point = {

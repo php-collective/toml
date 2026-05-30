@@ -33,11 +33,13 @@ final class EditingFixtureTest extends TestCase
 
         match (basename($caseDir)) {
             'single-line-array-insert-consistent' => $this->applySingleLineArrayInsert($document),
+            'single-line-array-insert-compact' => $this->applySingleLineArrayInsertCompact($document),
             'single-line-array-insert-from-one' => $this->applySingleLineArrayInsert($document),
             'single-line-array-remove' => $this->applySingleLineArrayRemoval($document),
             'single-line-array-remove-to-one' => $this->applySingleLineArrayRemovalToOne($document),
             'single-line-array-remove-consistent' => $this->applySingleLineArrayRemoval($document),
             'single-line-inline-insert' => $this->applySingleLineInlineInsert($document),
+            'single-line-inline-insert-compact' => $this->applySingleLineInlineInsertCompact($document),
             'single-line-inline-insert-from-one' => $this->applySingleLineInlineInsert($document),
             'nested-single-line-inline-insert-from-one' => $this->applyNestedSingleLineInlineInsert($document),
             'single-line-inline-remove-to-one' => $this->applySingleLineInlineRemovalToOne($document),
@@ -103,6 +105,15 @@ final class EditingFixtureTest extends TestCase
         $item->value->items[] = new IntegerValue(3, IntegerBase::Decimal, $this->span());
     }
 
+    private function applySingleLineArrayInsertCompact(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+        self::assertInstanceOf(ArrayValue::class, $item->value);
+
+        $item->value->items[] = new IntegerValue(2, IntegerBase::Decimal, $this->span());
+    }
+
     private function applySingleLineArrayRemovalToOne(Document $document): void
     {
         $item = $document->items[0];
@@ -121,6 +132,19 @@ final class EditingFixtureTest extends TestCase
         $item->value->items[] = new KeyValue(
             new Key(['z'], [KeyStyle::Bare], $this->span()),
             new IntegerValue(3, IntegerBase::Decimal, $this->span()),
+            $this->span(),
+        );
+    }
+
+    private function applySingleLineInlineInsertCompact(Document $document): void
+    {
+        $item = $document->items[0];
+        self::assertInstanceOf(KeyValue::class, $item);
+        self::assertInstanceOf(InlineTable::class, $item->value);
+
+        $item->value->items[] = new KeyValue(
+            new Key(['y'], [KeyStyle::Bare], $this->span()),
+            new IntegerValue(2, IntegerBase::Decimal, $this->span()),
             $this->span(),
         );
     }

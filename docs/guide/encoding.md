@@ -131,6 +131,44 @@ age = 30
 
 This also filters nulls from arrays and inline tables.
 
+### Multiline String Threshold
+
+`multilineThreshold` is an opt-in `?int` option. The default `null` keeps all scalar strings in the current single-line basic string form. When set, strings longer than the threshold use TOML multiline basic strings:
+
+```php
+$toml = Toml::encode([
+    'description' => 'a longer block of text',
+], new EncoderOptions(multilineThreshold: 10));
+```
+
+Output:
+
+```toml
+description = """
+a longer block of text"""
+```
+
+### Inline Table Threshold
+
+`inlineTableThreshold` is an opt-in `?int` option. The default `null` keeps nested associative arrays as table sections. When set, flat nested arrays with at most that many keys encode on the parent key line as inline tables:
+
+```php
+$toml = Toml::encode([
+    'point' => [
+        'x' => 1,
+        'y' => 2,
+    ],
+], new EncoderOptions(inlineTableThreshold: 3));
+```
+
+Output:
+
+```toml
+point = { x = 1, y = 2 }
+```
+
+Nested tables and arrays of tables still use table headers.
+
 ### Integer Grouping
 
 Add underscores to large integers for readability:
