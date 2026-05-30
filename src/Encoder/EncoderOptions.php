@@ -19,6 +19,8 @@ final readonly class EncoderOptions
         public bool $dottedKeys = false,
         public ArrayStyle $arrayStyle = ArrayStyle::Inline,
         public int $arrayAutoThreshold = 3,
+        public ?int $multilineThreshold = null,
+        public ?int $inlineTableThreshold = null,
         public string $indent = '    ',
     ) {
     }

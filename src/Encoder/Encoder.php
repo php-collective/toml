@@ -87,7 +87,7 @@ final class Encoder
             if ($value === null && $this->options->skipNulls) {
                 continue;
             }
-            if (!is_array($value) || $this->isInlineArray($value)) {
+            if (!is_array($value) || $this->isInlineArray($value) || $this->shouldInlineTable($value)) {
                 $keyPath = $this->options->dottedKeys && $path !== []
                     ? $this->encodePath([...$path, (string)$key])
                     : $this->encodeKey((string)$key);
@@ -98,7 +98,7 @@ final class Encoder
         // Second pass: tables and array of tables
         foreach ($keys as $key) {
             $value = $data[$key];
-            if (is_array($value) && !$this->isInlineArray($value)) {
+            if (is_array($value) && !$this->isInlineArray($value) && !$this->shouldInlineTable($value)) {
                 $newPath = [...$path, (string)$key];
 
                 if ($this->isArrayOfTables($value)) {
@@ -148,6 +148,10 @@ final class Encoder
         }
 
         if (is_string($value)) {
+            if ($this->options->multilineThreshold !== null && mb_strlen($value) > $this->options->multilineThreshold) {
+                return $this->encodeMultilineBasicString($value);
+            }
+
             return $this->encodeString($value);
         }
 
@@ -1313,14 +1317,25 @@ final class Encoder
     private function encodeInlineTable(array $value): string
     {
         $items = [];
-        foreach ($value as $k => $v) {
+        $keys = array_keys($value);
+        if ($this->options->sortKeys) {
+            sort($keys);
+        }
+
+        foreach ($keys as $k) {
+            $v = $value[$k];
             if ($v === null && $this->options->skipNulls) {
                 continue;
             }
             $items[] = $this->encodeKey((string)$k) . ' = ' . $this->encodeValue($v);
         }
 
-        return '{ ' . implode(', ', $items) . ' }';
+        // Trailing commas in inline tables are only valid in TOML 1.1.
+        $trailing = $this->options->trailingComma
+            && $this->options->version === TomlVersion::V11
+            && $items !== [] ? ',' : '';
+
+        return '{ ' . implode(', ', $items) . $trailing . ' }';
     }
 
     private function encodeKey(string $key): string
@@ -1358,6 +1373,45 @@ final class Encoder
         }
         foreach ($value as $item) {
             if (!is_array($item) || array_is_list($item)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private function shouldInlineTable(array $value): bool
+    {
+        return $this->options->inlineTableThreshold !== null
+            && !array_is_list($value)
+            && count($value) <= $this->options->inlineTableThreshold
+            && $this->isInlineSafeTable($value);
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private function isInlineSafeTable(array $value): bool
+    {
+        foreach ($value as $item) {
+            if (is_array($item) && (!$this->isInlineArray($item) || !$this->isScalarList($item))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private function isScalarList(array $value): bool
+    {
+        foreach ($value as $item) {
+            if (is_array($item)) {
                 return false;
             }
         }
