@@ -77,7 +77,7 @@ if ($result->isValid()) {
 
 Use `tryParse()` when you need diagnostics and a partial AST instead of exception-driven control flow.
 
-The default parser/decoder mode is TOML 1.1-compatible. Use `TomlVersion::V10` when you need strict TOML 1.0 rejection of 1.1-only features such as `\xHH`, `\e`, multiline inline tables, inline-table trailing commas, or local times without seconds.
+The default parser/decoder mode is TOML 1.1-compatible. Use `TomlVersion::V10` when you need strict TOML 1.0 rejection of 1.1-only features such as `\xHH`, `\e`, multiline inline-table layout, inline-table trailing commas, or local times without seconds.
 
 ### encode()
 
