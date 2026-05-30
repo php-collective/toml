@@ -763,23 +763,31 @@ final class Lexer
 
         // Hex (lowercase 0x only, no sign)
         if (str_starts_with($clean, '0x')) {
-            $parsed = intval($clean, 16);
+            // hexdec() returns a float when the value exceeds the signed 64-bit range
+            $parsed = hexdec(substr($clean, 2));
+            if (!is_int($parsed)) {
+                return new Token(TokenType::Invalid, $value, null, $span);
+            }
 
             return new Token(TokenType::Integer, $value, $parsed, $span);
         }
 
         // Octal (lowercase 0o only, no sign)
         if (str_starts_with($clean, '0o')) {
-            $oct = substr($clean, 2);
-            $parsed = intval($oct, 8);
+            $parsed = octdec(substr($clean, 2));
+            if (!is_int($parsed)) {
+                return new Token(TokenType::Invalid, $value, null, $span);
+            }
 
             return new Token(TokenType::Integer, $value, $parsed, $span);
         }
 
         // Binary (lowercase 0b only, no sign)
         if (str_starts_with($clean, '0b')) {
-            $bin = substr($clean, 2);
-            $parsed = (int)bindec($bin);
+            $parsed = bindec(substr($clean, 2));
+            if (!is_int($parsed)) {
+                return new Token(TokenType::Invalid, $value, null, $span);
+            }
 
             return new Token(TokenType::Integer, $value, $parsed, $span);
         }
@@ -789,8 +797,14 @@ final class Lexer
             return new Token(TokenType::Float, $value, (float)$clean, $span);
         }
 
-        // Plain integer
-        return new Token(TokenType::Integer, $value, (int)$clean, $span);
+        // Plain integer; TOML integers are 64-bit signed, so reject out-of-range values
+        // instead of silently saturating to PHP_INT_MAX/PHP_INT_MIN via an (int) cast.
+        $parsed = filter_var($clean, FILTER_VALIDATE_INT);
+        if ($parsed === false) {
+            return new Token(TokenType::Invalid, $value, null, $span);
+        }
+
+        return new Token(TokenType::Integer, $value, $parsed, $span);
     }
 
     private function isNumberChar(string $char): bool
