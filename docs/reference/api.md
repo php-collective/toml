@@ -223,6 +223,7 @@ public function __construct(
     ArrayStyle $arrayStyle = ArrayStyle::Inline,
     int $arrayAutoThreshold = 3,
     string $indent = '    ',
+    StringStyle $stringStyle = StringStyle::Basic,
 )
 ```
 
@@ -248,13 +249,14 @@ $toml = Toml::encode($data, EncoderOptions::diffFriendly());
 | `newline` | `string` | `"\n"` | Newline sequence to use (`"\n"` or `"\r\n"`) |
 | `documentFormatting` | `DocumentFormattingMode` | `Normalized` | `Normalized` or `SourceAware` for `encodeDocument()` |
 | `skipNulls` | `bool` | `false` | Omit `null` values instead of throwing `EncodeException` |
-| `version` | `TomlVersion` | `V11` | TOML version for output rules |
+| `version` | `TomlVersion` | `V10` | TOML version for output rules |
 | `integerGrouping` | `bool` | `false` | Add underscores to large integers (e.g., `1_000_000`) |
 | `trailingComma` | `bool` | `false` | Add trailing commas to inline arrays |
 | `dottedKeys` | `bool` | `false` | Use dotted keys instead of table sections |
 | `arrayStyle` | `ArrayStyle` | `Inline` | Array formatting style (see below) |
 | `arrayAutoThreshold` | `int` | `3` | Item count threshold for `ArrayStyle::Auto` |
 | `indent` | `string` | `'    '` | Indentation string for multiline arrays |
+| `stringStyle` | `StringStyle` | `Basic` | String formatting style for plain PHP strings |
 
 ### ArrayStyle
 
@@ -332,6 +334,29 @@ $toml = Toml::encode(
 );
 // database.host = "localhost"
 // database.port = 5432
+```
+
+### StringStyle
+
+Controls how plain PHP strings are formatted during `encode()`.
+
+```php
+use PhpCollective\Toml\Encoder\StringStyle;
+```
+
+| Style | Description |
+|-------|-------------|
+| `StringStyle::Basic` | Basic double-quoted strings. This is the default and preserves current output behavior |
+| `StringStyle::Literal` | Single-quoted literal strings when representable; falls back to basic strings when needed |
+| `StringStyle::MultiLineBasic` | Multiline basic strings |
+| `StringStyle::MultiLineLiteral` | Multiline literal strings when representable; falls back to multiline basic strings when needed |
+
+```php
+$toml = Toml::encode(
+    ['path' => 'C:\Users\name'],
+    new EncoderOptions(stringStyle: StringStyle::Literal),
+);
+// path = 'C:\Users\name'
 ```
 
 ### TOML Version Modes

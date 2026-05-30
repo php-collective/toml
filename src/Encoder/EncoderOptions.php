@@ -20,6 +20,7 @@ final class EncoderOptions
         public readonly ArrayStyle $arrayStyle = ArrayStyle::Inline,
         public readonly int $arrayAutoThreshold = 3,
         public readonly string $indent = '    ',
+        public readonly StringStyle $stringStyle = StringStyle::Basic,
     ) {
     }
 

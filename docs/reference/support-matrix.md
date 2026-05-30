@@ -68,7 +68,7 @@ The default parser/decoder behavior is TOML 1.1-compatible. The default encoder 
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Strings | Supported | Encoded as basic strings |
+| Strings | Supported | Encoded as basic strings by default; literal and multiline styles are opt-in via `EncoderOptions` |
 | Integers | Supported | |
 | Floats | Supported | |
 | Booleans | Supported | |

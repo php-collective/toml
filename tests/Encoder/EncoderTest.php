@@ -9,6 +9,7 @@ use PhpCollective\Toml\Encoder\ArrayStyle;
 use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\Encoder;
 use PhpCollective\Toml\Encoder\EncoderOptions;
+use PhpCollective\Toml\Encoder\StringStyle;
 use PhpCollective\Toml\Exception\EncodeException;
 use PhpCollective\Toml\Toml;
 use PhpCollective\Toml\Value\LocalDate;
@@ -114,6 +115,63 @@ final class EncoderTest extends TestCase
 
         $this->assertStringContainsString('path = "line1\\nline2"', $result);
         $this->assertStringContainsString('quote = "say \\"hello\\""', $result);
+    }
+
+    public function testEncodeStringStyleLiteral(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(stringStyle: StringStyle::Literal));
+
+        $result = $encoder->encode([
+            'path' => 'C:\Users\name',
+        ]);
+
+        $this->assertStringContainsString("path = 'C:\\Users\\name'", $result);
+    }
+
+    public function testEncodeStringStyleLiteralFallsBackToBasicWhenNeeded(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(stringStyle: StringStyle::Literal));
+
+        $result = $encoder->encode([
+            'quote' => "it's fine",
+            'line' => "hello\nworld",
+        ]);
+
+        $this->assertStringContainsString('quote = "it\'s fine"', $result);
+        $this->assertStringContainsString('line = "hello\\nworld"', $result);
+    }
+
+    public function testEncodeStringStyleMultilineBasic(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(stringStyle: StringStyle::MultiLineBasic));
+
+        $result = $encoder->encode([
+            'message' => "hello\nworld",
+        ]);
+
+        $this->assertStringContainsString("message = \"\"\"\nhello\nworld\"\"\"", $result);
+    }
+
+    public function testEncodeStringStyleMultilineLiteral(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(stringStyle: StringStyle::MultiLineLiteral));
+
+        $result = $encoder->encode([
+            'message' => "hello\nworld",
+        ]);
+
+        $this->assertStringContainsString("message = '''\nhello\nworld'''", $result);
+    }
+
+    public function testEncodeStringStyleDoesNotChangeKeyStyle(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(stringStyle: StringStyle::Literal));
+
+        $result = $encoder->encode([
+            'key with spaces' => 'value',
+        ]);
+
+        $this->assertStringContainsString('"key with spaces" = \'value\'', $result);
     }
 
     public function testEncodeDateTime(): void
