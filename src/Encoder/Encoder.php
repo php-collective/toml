@@ -60,7 +60,7 @@ final class Encoder
             throw new EncodeException($errors[0]->message);
         }
 
-        if ($this->options->documentFormatting === DocumentFormattingMode::Normalized || !$this->documentHasTrivia($doc)) {
+        if ($this->options->documentFormatting === DocumentFormattingMode::Normalized || !$this->documentHasSourceAwareSignals($doc)) {
             return $this->encode($normalized);
         }
 
@@ -642,26 +642,32 @@ final class Encoder
         return implode('', array_map(static fn (Trivia $item) => $item->value, $trivia));
     }
 
-    private function documentHasTrivia(Document $doc): bool
+    private function documentHasSourceAwareSignals(Document $doc): bool
     {
         foreach ($doc->items as $item) {
             if ($item->getLeadingTrivia() !== [] || $item->getTrailingTrivia() !== []) {
                 return true;
             }
 
-            if ($item instanceof KeyValue && $this->astValueHasTrivia($item->value)) {
+            if ($item instanceof KeyValue) {
+                if ($item->raw !== '' || $this->astValueHasSourceAwareSignals($item->value)) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if ($item->rawHeader !== '') {
                 return true;
             }
 
-            if ($item instanceof Table) {
-                foreach ($item->items as $child) {
-                    if ($child->getLeadingTrivia() !== [] || $child->getTrailingTrivia() !== []) {
-                        return true;
-                    }
+            foreach ($item->items as $child) {
+                if ($child->getLeadingTrivia() !== [] || $child->getTrailingTrivia() !== [] || $child->raw !== '') {
+                    return true;
+                }
 
-                    if ($this->astValueHasTrivia($child->value)) {
-                        return true;
-                    }
+                if ($this->astValueHasSourceAwareSignals($child->value)) {
+                    return true;
                 }
             }
         }
@@ -740,9 +746,9 @@ final class Encoder
         }
     }
 
-    private function astValueHasTrivia(Value $value): bool
+    private function astValueHasSourceAwareSignals(Value $value): bool
     {
-        if ($value->getLeadingTrivia() !== [] || $value->getTrailingTrivia() !== []) {
+        if ($value->getLeadingTrivia() !== [] || $value->getTrailingTrivia() !== [] || $this->valueHasRawSource($value)) {
             return true;
         }
 
@@ -752,7 +758,7 @@ final class Encoder
             }
 
             foreach ($value->items as $item) {
-                if ($this->astValueHasTrivia($item)) {
+                if ($this->astValueHasSourceAwareSignals($item)) {
                     return true;
                 }
             }
@@ -768,13 +774,30 @@ final class Encoder
                     return true;
                 }
 
-                if ($this->astValueHasTrivia($item->value)) {
+                if ($this->astValueHasSourceAwareSignals($item->value)) {
                     return true;
                 }
             }
         }
 
         return false;
+    }
+
+    private function valueHasRawSource(Value $value): bool
+    {
+        return match (true) {
+            $value instanceof StringValue => $value->raw !== '',
+            $value instanceof IntegerValue => $value->raw !== '',
+            $value instanceof FloatValue => $value->raw !== '',
+            $value instanceof BoolValue => $value->raw !== '',
+            $value instanceof OffsetDateTime => $value->raw !== '',
+            $value instanceof LocalDateTime => $value->raw !== '',
+            $value instanceof LocalDate => $value->raw !== '',
+            $value instanceof LocalTime => $value->raw !== '',
+            $value instanceof ArrayValue => $value->raw !== '',
+            $value instanceof InlineTable => $value->raw !== '',
+            default => false,
+        };
     }
 
     private function arrayHasSyntheticItems(ArrayValue $value): bool
@@ -1093,7 +1116,7 @@ final class Encoder
                 return [
                     'opening' => $opening,
                     'beforeComma' => '',
-                    'afterComma' => $closingSpacing !== '' ? $closingSpacing : ($opening !== '' ? $opening : ' '),
+                    'afterComma' => $closingSpacing !== '' ? $closingSpacing : $opening,
                     'closing' => $closingSpacing,
                     'trailingComma' => $value->hasTrailingComma,
                 ];
@@ -1162,9 +1185,9 @@ final class Encoder
                 }
 
                 return [
-                    'opening' => $opening !== '' ? $opening : ' ',
-                    'afterComma' => $closingSpacing !== '' ? $closingSpacing : ($opening !== '' ? $opening : ' '),
-                    'closing' => $closingSpacing !== '' ? $closingSpacing : ' ',
+                    'opening' => $opening,
+                    'afterComma' => $closingSpacing !== '' ? $closingSpacing : $opening,
+                    'closing' => $closingSpacing,
                 ];
             }
 
@@ -1172,9 +1195,9 @@ final class Encoder
         }
 
         return [
-            'opening' => $opening !== '' ? $opening : ' ',
+            'opening' => $opening,
             'afterComma' => $afterComma ?? ' ',
-            'closing' => $closing !== '' ? $closing : ' ',
+            'closing' => $closing,
         ];
     }
 

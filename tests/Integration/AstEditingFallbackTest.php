@@ -130,7 +130,7 @@ TOML
 
         $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
 
-        $this->assertSame("point = { x = 1, z = 3 }\n", $encoded);
+        $this->assertSame("point = { x = 1, z = 3}\n", $encoded);
     }
 
     public function testEncodeDocumentPreservesSingleLineArrayDelimiterStyleAfterRemovalWhenConsistent(): void
