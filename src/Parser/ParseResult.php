@@ -6,7 +6,7 @@ namespace PhpCollective\Toml\Parser;
 
 use PhpCollective\Toml\Ast\Document;
 
-final readonly class ParseResult
+final class ParseResult
 {
     /**
      * @param \PhpCollective\Toml\Ast\Document|null $document
@@ -14,9 +14,9 @@ final readonly class ParseResult
      * @param array<string, mixed>|null $value
      */
     public function __construct(
-        private ?Document $document,
-        private array $errors,
-        private ?array $value = null,
+        private readonly ?Document $document,
+        private readonly array $errors,
+        private readonly ?array $value = null,
     ) {
     }
 

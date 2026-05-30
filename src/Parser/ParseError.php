@@ -6,12 +6,12 @@ namespace PhpCollective\Toml\Parser;
 
 use PhpCollective\Toml\Lexer\Span;
 
-final readonly class ParseError
+final class ParseError
 {
     public function __construct(
-        public string $message,
-        public Span $span,
-        public ?string $hint = null,
+        public readonly string $message,
+        public readonly Span $span,
+        public readonly ?string $hint = null,
     ) {
     }
 

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace PhpCollective\Toml\Lexer;
 
-final readonly class Token
+final class Token
 {
     public function __construct(
-        public TokenType $type,
-        public string $value,
-        public mixed $parsed,
-        public Span $span,
+        public readonly TokenType $type,
+        public readonly string $value,
+        public readonly mixed $parsed,
+        public readonly Span $span,
     ) {
     }
 

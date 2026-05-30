@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace PhpCollective\Toml\Lexer;
 
-final readonly class Span
+final class Span
 {
     public function __construct(
-        public int $start,
-        public int $end,
-        public int $line,
-        public int $column,
+        public readonly int $start,
+        public readonly int $end,
+        public readonly int $line,
+        public readonly int $column,
     ) {
     }
 
