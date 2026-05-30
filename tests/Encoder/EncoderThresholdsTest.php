@@ -6,6 +6,7 @@ namespace PhpCollective\Toml\Test\Encoder;
 
 use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Toml;
+use PhpCollective\Toml\TomlVersion;
 use PHPUnit\Framework\TestCase;
 
 final class EncoderThresholdsTest extends TestCase
