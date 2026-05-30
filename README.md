@@ -171,7 +171,7 @@ The library currently supports:
 
 See the [Support Matrix](https://php-collective.github.io/toml/reference/support-matrix) for current coverage and known gaps.
 
-Versioned behavior is available through `TomlVersion` and `EncoderOptions(version: ...)`. The default remains TOML 1.1-compatible; use `TomlVersion::V10` when you need strict TOML 1.0 parsing or output rules.
+Versioned behavior is available through `TomlVersion` and `EncoderOptions(version: ...)`. Parsing defaults to TOML 1.1-compatible input, while encoding defaults to TOML 1.0-compatible output for interoperability. Use `TomlVersion::V10` when you need strict TOML 1.0 parsing, or `EncoderOptions(version: TomlVersion::V11)` when you want TOML 1.1 output.
 
 For explicit local temporal encoding, use:
 

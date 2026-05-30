@@ -42,6 +42,15 @@ final class VersioningTest extends TestCase
         Toml::decode("time = 07:32\n", TomlVersion::V10);
     }
 
+    public function testEncodeDefaultsToToml10Behavior(): void
+    {
+        $encoded = Toml::encode([
+            'time' => new LocalTime('07:32'),
+        ]);
+
+        $this->assertSame('time = 07:32:00', $encoded);
+    }
+
     public function testTryParseRejectsInlineTableTrailingCommaInToml10Mode(): void
     {
         $result = Toml::tryParse('point = { x = 1, }', TomlVersion::V10);
@@ -56,6 +65,33 @@ final class VersioningTest extends TestCase
 
         $this->assertFalse($result->isValid());
         $this->assertSame('Multiline inline tables require TOML 1.1', $result->getErrors()[0]->message);
+    }
+
+    public function testDecodeAllowsMultilineArrayInsideInlineTableInToml10Mode(): void
+    {
+        $input = <<<'TOML'
+point = { values = [
+  1,
+  2,
+] }
+TOML;
+
+        $decoded = Toml::decode($input, TomlVersion::V10);
+
+        $this->assertSame(['point' => ['values' => [1, 2]]], $decoded);
+    }
+
+    public function testDecodeAllowsMultilineStringInsideInlineTableInToml10Mode(): void
+    {
+        $input = <<<'TOML'
+point = { text = """
+hello
+""" }
+TOML;
+
+        $decoded = Toml::decode($input, TomlVersion::V10);
+
+        $this->assertSame(['point' => ['text' => "hello\n"]], $decoded);
     }
 
     public function testEncodeNormalizesLocalTimeForToml10Mode(): void

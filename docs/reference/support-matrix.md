@@ -6,7 +6,7 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 
 The sections below intentionally separate parsing/decoding, encoding, and round-trip editing so support claims stay scoped to the actual surface being described.
 
-The default API behavior is TOML 1.1-compatible. Strict TOML 1.0 parsing/decoding and encoding are available through `TomlVersion::V10` and `EncoderOptions(version: TomlVersion::V10)`.
+The default parser/decoder behavior is TOML 1.1-compatible. The default encoder behavior is TOML 1.0-compatible for interoperability; TOML 1.1 output is available through `EncoderOptions(version: TomlVersion::V11)`.
 
 ## Status Legend
 
@@ -62,7 +62,7 @@ The default API behavior is TOML 1.1-compatible. Strict TOML 1.0 parsing/decodin
 | Nested inline tables | Supported | |
 | Dotted keys inside inline tables | Supported | |
 | Inline table trailing commas | Supported | TOML 1.1; rejected in strict TOML 1.0 mode |
-| Multiline inline tables | Supported | TOML 1.1; rejected in strict TOML 1.0 mode |
+| Multiline inline-table layout | Supported | TOML 1.1; rejected in strict TOML 1.0 mode. TOML 1.0 still allows multiline array and string values inside inline tables |
 
 ## Encoding
 
@@ -121,19 +121,19 @@ Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0:
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
-| Valid | 428 | 0 | 100% |
+| Valid | 214 | 0 | 100% |
 | Invalid | 466 | 0 | 100% |
 
 ### TOML 1.0
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
-| Valid | 410 | 0 | 100% |
+| Valid | 205 | 0 | 100% |
 | Invalid | 473 | 0 | 100% |
 
 These results were measured against the library's `bin/toml-decoder` adapter for the `toml-test` tagged JSON format. TOML 1.1 results use the default adapter mode; TOML 1.0 results use `TOML_VERSION=1.0` so the decoder runs in strict TOML 1.0 mode.
 
-Strict TOML 1.0 mode closes the previously documented invalid-case gaps for syntax that TOML 1.1 relaxes: multiline inline tables, inline-table trailing commas, `\xHH` byte escapes, and optional seconds in local times/datetimes.
+Strict TOML 1.0 mode closes the previously documented invalid-case gaps for syntax that TOML 1.1 relaxes: multiline inline-table layout, inline-table trailing commas, `\xHH` byte escapes, and optional seconds in local times/datetimes.
 
 ## Recommended Use
 

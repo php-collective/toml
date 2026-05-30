@@ -77,7 +77,7 @@ if ($result->isValid()) {
 
 Use `tryParse()` when you need diagnostics and a partial AST instead of exception-driven control flow.
 
-The default parser/decoder mode is TOML 1.1-compatible. Use `TomlVersion::V10` when you need strict TOML 1.0 rejection of 1.1-only features such as `\xHH`, `\e`, multiline inline tables, inline-table trailing commas, or local times without seconds.
+The default parser/decoder mode is TOML 1.1-compatible. Use `TomlVersion::V10` when you need strict TOML 1.0 rejection of 1.1-only features such as `\xHH`, `\e`, multiline inline-table layout, inline-table trailing commas, or local times without seconds.
 
 ### encode()
 
@@ -91,9 +91,8 @@ Encodes a PHP array to a TOML string.
 $toml = Toml::encode(['key' => 'value']);
 // key = "value"
 
-$strict = Toml::encode(
+$toml = Toml::encode(
     ['time' => new \PhpCollective\Toml\Value\LocalTime('07:32')],
-    new EncoderOptions(version: TomlVersion::V10),
 );
 // time = 07:32:00
 ```
@@ -335,18 +334,20 @@ $toml = Toml::encode(
 // database.port = 5432
 ```
 
-### TOML 1.0 Mode
+### TOML Version Modes
 
-In strict TOML 1.0 mode, `encode()` normalizes local times and local datetimes to include seconds where possible. `encodeDocument()` in `DocumentFormattingMode::SourceAware` throws `EncodeException` if preserving the parsed source would keep TOML 1.1-only syntax.
+Parsing and decoding default to TOML 1.1-compatible input. Encoding defaults to TOML 1.0-compatible output for interoperability and normalizes local times and local datetimes to include seconds where possible.
+
+`encodeDocument()` in `DocumentFormattingMode::SourceAware` throws `EncodeException` if preserving the parsed source would keep TOML 1.1-only syntax while `EncoderOptions(version: TomlVersion::V10)` is active.
 
 ## TomlVersion
 
 Controls version-specific parser and encoder behavior.
 
 - `TomlVersion::V11`
-  Default behavior. Accepts TOML 1.1 syntax and emits TOML 1.1-compatible output.
+  Default parser/decoder behavior. Accepts TOML 1.1 syntax and emits TOML 1.1-compatible output when passed to `EncoderOptions`.
 - `TomlVersion::V10`
-  Strict TOML 1.0 mode for parsing, decoding, and encoding.
+  Strict TOML 1.0 mode for parsing and decoding. Default encoder behavior.
 
 ## DocumentFormattingMode
 

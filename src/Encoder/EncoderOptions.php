@@ -13,7 +13,7 @@ final readonly class EncoderOptions
         public string $newline = "\n",
         public DocumentFormattingMode $documentFormatting = DocumentFormattingMode::Normalized,
         public bool $skipNulls = false,
-        public TomlVersion $version = TomlVersion::V11,
+        public TomlVersion $version = TomlVersion::V10,
         public bool $integerGrouping = false,
         public bool $trailingComma = false,
         public bool $dottedKeys = false,

@@ -7,6 +7,7 @@ namespace PhpCollective\Toml\Test\Integration;
 use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Toml;
+use PhpCollective\Toml\TomlVersion;
 use PHPUnit\Framework\TestCase;
 
 final class DocumentRoundTripTest extends TestCase
@@ -145,7 +146,13 @@ TOML;
         $input = "point = {\n\tx = 1,\n\ty = 2,\n}";
 
         $doc = Toml::parse($input, true);
-        $encoded = Toml::encodeDocument($doc, new EncoderOptions(documentFormatting: DocumentFormattingMode::SourceAware));
+        $encoded = Toml::encodeDocument(
+            $doc,
+            new EncoderOptions(
+                documentFormatting: DocumentFormattingMode::SourceAware,
+                version: TomlVersion::V11,
+            ),
+        );
 
         $this->assertSame($input, $encoded);
     }
