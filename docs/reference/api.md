@@ -223,6 +223,8 @@ public function __construct(
     bool $dottedKeys = false,
     ArrayStyle $arrayStyle = ArrayStyle::Inline,
     int $arrayAutoThreshold = 3,
+    ?int $multilineThreshold = null,
+    ?int $inlineTableThreshold = null,
     string $indent = '    ',
 )
 ```
@@ -255,6 +257,8 @@ $toml = Toml::encode($data, EncoderOptions::diffFriendly());
 | `dottedKeys` | `bool` | `false` | Use dotted keys instead of table sections |
 | `arrayStyle` | `ArrayStyle` | `Inline` | Array formatting style (see below) |
 | `arrayAutoThreshold` | `int` | `3` | Item count threshold for `ArrayStyle::Auto` |
+| `multilineThreshold` | `?int` | `null` | Opt-in string length threshold for multiline basic strings in `encode()` |
+| `inlineTableThreshold` | `?int` | `null` | Opt-in key count threshold for small flat nested arrays to encode as inline tables |
 | `indent` | `string` | `'    '` | Indentation string for multiline arrays |
 
 ### ArrayStyle
@@ -312,6 +316,29 @@ $toml = Toml::encode(
 //   2,
 //   3,
 // ]
+```
+
+### Encoder Thresholds
+
+`multilineThreshold` is `?int` and defaults to `null`. When set, `encode()` emits scalar strings longer than the threshold as multiline basic strings.
+
+```php
+$toml = Toml::encode(
+    ['description' => 'a longer block of text'],
+    new EncoderOptions(multilineThreshold: 10),
+);
+// description = """
+// a longer block of text"""
+```
+
+`inlineTableThreshold` is `?int` and defaults to `null`. When set, `encode()` emits flat nested arrays with at most that many keys as inline tables; nested tables and arrays of tables still use table headers.
+
+```php
+$toml = Toml::encode(
+    ['point' => ['x' => 1, 'y' => 2]],
+    new EncoderOptions(inlineTableThreshold: 3),
+);
+// point = { x = 1, y = 2 }
 ```
 
 ### Integer Grouping
