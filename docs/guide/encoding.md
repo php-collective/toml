@@ -32,6 +32,7 @@ port = 5432
 |----------|-------------|
 | `string` | Basic string `"value"` |
 | `int` | Integer `42` |
+| `PhpCollective\Toml\Value\TomlInteger` | Integer in a chosen base, e.g. `0xFF` |
 | `float` | Float `3.14` |
 | `bool` | Boolean `true` / `false` |
 | `array` (list) | Array `[1, 2, 3]` |
@@ -183,6 +184,49 @@ Output:
 
 ```toml
 population = 1_000_000
+```
+
+### Integer Base
+
+`integerBase` controls the radix used for integers emitted by `encode()` (and normalized `encodeDocument()` output). The default is `IntegerBase::Decimal`; `Hexadecimal`, `Octal`, and `Binary` produce `0x`/`0o`/`0b` literals:
+
+```php
+use PhpCollective\Toml\Ast\Value\IntegerBase;
+
+$toml = Toml::encode([
+    'mask' => 255,
+    'mode' => 493,
+], new EncoderOptions(integerBase: IntegerBase::Hexadecimal));
+```
+
+Output:
+
+```toml
+mask = 0xFF
+mode = 0x1ED
+```
+
+::: tip
+TOML permits a sign only on decimal integers, so negative values always fall back to decimal regardless of `integerBase`. Source-aware document re-encoding preserves each integer's original source base instead of applying this option.
+:::
+
+`integerBase` applies one radix to every integer. For per-value control — e.g. a hexadecimal mask next to a decimal count — wrap individual values in `TomlInteger`:
+
+```php
+use PhpCollective\Toml\Ast\Value\IntegerBase;
+use PhpCollective\Toml\Value\TomlInteger;
+
+$toml = Toml::encode([
+    'mask' => new TomlInteger(255, IntegerBase::Hexadecimal),
+    'count' => 10,
+]);
+```
+
+Output:
+
+```toml
+mask = 0xFF
+count = 10
 ```
 
 ### Trailing Commas

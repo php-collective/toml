@@ -219,6 +219,7 @@ public function __construct(
     bool $skipNulls = false,
     TomlVersion $version = TomlVersion::V11,
     bool $integerGrouping = false,
+    IntegerBase $integerBase = IntegerBase::Decimal,
     bool $trailingComma = false,
     bool $dottedKeys = false,
     ArrayStyle $arrayStyle = ArrayStyle::Inline,
@@ -253,6 +254,7 @@ $toml = Toml::encode($data, EncoderOptions::diffFriendly());
 | `skipNulls` | `bool` | `false` | Omit `null` values instead of throwing `EncodeException` |
 | `version` | `TomlVersion` | `V11` | TOML version for output rules |
 | `integerGrouping` | `bool` | `false` | Add underscores to large integers (e.g., `1_000_000`) |
+| `integerBase` | `IntegerBase` | `Decimal` | Radix for integers in `encode()` output (`Hexadecimal`/`Octal`/`Binary` emit `0x`/`0o`/`0b`; negatives stay decimal) |
 | `trailingComma` | `bool` | `false` | Add trailing commas to inline arrays |
 | `dottedKeys` | `bool` | `false` | Use dotted keys instead of table sections |
 | `arrayStyle` | `ArrayStyle` | `Inline` | Array formatting style (see below) |

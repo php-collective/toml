@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpCollective\Toml\Test\Encoder;
 
 use DateTimeImmutable;
+use PhpCollective\Toml\Ast\Value\IntegerBase;
 use PhpCollective\Toml\Encoder\ArrayStyle;
 use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\Encoder;
@@ -14,6 +15,7 @@ use PhpCollective\Toml\Toml;
 use PhpCollective\Toml\Value\LocalDate;
 use PhpCollective\Toml\Value\LocalDateTime;
 use PhpCollective\Toml\Value\LocalTime;
+use PhpCollective\Toml\Value\TomlInteger;
 use PHPUnit\Framework\TestCase;
 
 final class EncoderTest extends TestCase
@@ -351,6 +353,122 @@ final class EncoderTest extends TestCase
         ]);
 
         $this->assertStringContainsString('large = 1000000', $result);
+    }
+
+    public function testEncodeIntegerBaseHexadecimal(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(integerBase: IntegerBase::Hexadecimal));
+
+        $result = $encoder->encode([
+            'zero' => 0,
+            'mask' => 255,
+            'color' => 16711935,
+        ]);
+
+        $this->assertStringContainsString('zero = 0x0', $result);
+        $this->assertStringContainsString('mask = 0xFF', $result);
+        $this->assertStringContainsString('color = 0xFF00FF', $result);
+    }
+
+    public function testEncodeIntegerBaseOctal(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(integerBase: IntegerBase::Octal));
+
+        $result = $encoder->encode([
+            'perms' => 493,
+        ]);
+
+        $this->assertStringContainsString('perms = 0o755', $result);
+    }
+
+    public function testEncodeIntegerBaseBinary(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(integerBase: IntegerBase::Binary));
+
+        $result = $encoder->encode([
+            'flags' => 10,
+        ]);
+
+        $this->assertStringContainsString('flags = 0b1010', $result);
+    }
+
+    public function testEncodeIntegerBaseFallsBackToDecimalForNegativeValues(): void
+    {
+        // TOML hex/octal/binary literals are unsigned; negatives stay decimal so the
+        // output remains valid TOML.
+        $encoder = new Encoder(new EncoderOptions(integerBase: IntegerBase::Hexadecimal));
+
+        $result = $encoder->encode([
+            'negative' => -255,
+        ]);
+
+        $this->assertStringContainsString('negative = -255', $result);
+        $this->assertSame(-255, Toml::decode($result)['negative']);
+    }
+
+    public function testEncodeIntegerBaseDefaultsToDecimal(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'value' => 255,
+        ]);
+
+        $this->assertStringContainsString('value = 255', $result);
+    }
+
+    public function testEncodeIntegerBaseRoundTripsToSameValue(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(integerBase: IntegerBase::Hexadecimal));
+
+        $toml = $encoder->encode([
+            'mask' => 255,
+        ]);
+
+        $this->assertSame(255, Toml::decode($toml)['mask']);
+    }
+
+    public function testEncodeIntegerBaseDoesNotAffectSourceAwareDocumentBase(): void
+    {
+        // integerBase governs the array-encode path; source-aware document
+        // re-encoding preserves each integer's original source base instead.
+        $document = Toml::parse('mask = 0xFF' . "\n", true);
+
+        $toml = Toml::encodeDocument(
+            $document,
+            new EncoderOptions(
+                documentFormatting: DocumentFormattingMode::SourceAware,
+                integerBase: IntegerBase::Octal,
+            ),
+        );
+
+        $this->assertStringContainsString('0xFF', $toml);
+        $this->assertStringNotContainsString('0o', $toml);
+    }
+
+    public function testEncodeMixedIntegerBasesViaTomlIntegerValueObject(): void
+    {
+        // TomlInteger lets a plain array carry per-value bases, unlike the global
+        // integerBase option which applies one radix to every integer.
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'mask' => new TomlInteger(255, IntegerBase::Hexadecimal),
+            'mode' => new TomlInteger(493, IntegerBase::Octal),
+            'flags' => new TomlInteger(10, IntegerBase::Binary),
+            'count' => 10,
+        ]);
+
+        $this->assertStringContainsString('mask = 0xFF', $result);
+        $this->assertStringContainsString('mode = 0o755', $result);
+        $this->assertStringContainsString('flags = 0b1010', $result);
+        $this->assertStringContainsString('count = 10', $result);
+
+        $decoded = Toml::decode($result);
+        $this->assertSame(255, $decoded['mask']);
+        $this->assertSame(493, $decoded['mode']);
+        $this->assertSame(10, $decoded['flags']);
+        $this->assertSame(10, $decoded['count']);
     }
 
     public function testEncodeTrailingComma(): void
