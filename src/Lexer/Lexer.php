@@ -39,6 +39,12 @@ final class Lexer
             return;
         }
 
+        // Skip a single optional leading UTF-8 BOM (U+FEFF, bytes EF BB BF). The
+        // toml-test conformance suite treats a leading BOM as valid input.
+        if ($this->pos === 0 && str_starts_with($this->input, "\u{FEFF}")) {
+            $this->pos = 3;
+        }
+
         while ($this->pos < $this->length) {
             $char = $this->input[$this->pos];
 
