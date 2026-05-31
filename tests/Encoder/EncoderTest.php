@@ -18,6 +18,7 @@ use PhpCollective\Toml\Value\LocalTime;
 use PhpCollective\Toml\Value\TomlInteger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 final class EncoderTest extends TestCase
 {
@@ -786,5 +787,87 @@ final class EncoderTest extends TestCase
         ]);
 
         $this->assertStringContainsString('x = 1987-07-05T17:45:00Z', $result);
+    }
+
+    public function testEncodeEmptyStdClassAsEmptyTable(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode(['settings' => new stdClass()]);
+
+        $this->assertSame('[settings]', trim($result));
+    }
+
+    public function testEncodeEmptyArrayStillEncodesAsArray(): void
+    {
+        // Backward compatible: an empty array is unchanged by stdClass table support.
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode(['arr' => []]);
+
+        $this->assertSame('arr = []', trim($result));
+    }
+
+    public function testEncodeStdClassAsTableSection(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $object = new stdClass();
+        $object->host = 'localhost';
+        $object->port = 8080;
+
+        $result = $encoder->encode(['server' => $object]);
+
+        $this->assertStringContainsString('[server]', $result);
+        $this->assertStringContainsString('host = "localhost"', $result);
+        $this->assertStringContainsString('port = 8080', $result);
+    }
+
+    public function testEncodeNestedEmptyStdClass(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $outer = new stdClass();
+        $outer->inner = new stdClass();
+
+        $result = $encoder->encode(['a' => $outer]);
+
+        $this->assertStringContainsString('[a]', $result);
+        $this->assertStringContainsString('[a.inner]', $result);
+    }
+
+    public function testEncodeStdClassInsideArrayAsInlineTable(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $populated = new stdClass();
+        $populated->x = 1;
+
+        $result = $encoder->encode(['list' => [$populated, new stdClass()]]);
+
+        $this->assertStringContainsString('list = [{ x = 1 }, {}]', $result);
+    }
+
+    public function testEncodeStdClassRespectsInlineTableThreshold(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(inlineTableThreshold: 3));
+
+        $point = new stdClass();
+        $point->x = 1;
+        $point->y = 2;
+
+        $result = $encoder->encode(['p' => $point]);
+
+        $this->assertSame('p = { x = 1, y = 2 }', trim($result));
+    }
+
+    public function testEncodeEmptyStdClassWithDottedKeys(): void
+    {
+        // Dotted-key mode emits no [table] headers, so an empty table is written inline.
+        $encoder = new Encoder(new EncoderOptions(dottedKeys: true));
+
+        $result = $encoder->encode(['a' => (object)['b' => new stdClass()]]);
+
+        $this->assertSame('a.b = {}', trim($result));
     }
 }

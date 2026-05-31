@@ -33,6 +33,7 @@ use PhpCollective\Toml\Value\LocalDateTime as ValueLocalDateTime;
 use PhpCollective\Toml\Value\LocalTime as ValueLocalTime;
 use PhpCollective\Toml\Value\TomlInteger;
 use PhpCollective\Toml\Value\TomlValue;
+use stdClass;
 
 final class Encoder
 {
@@ -82,13 +83,13 @@ final class Encoder
             sort($keys);
         }
 
-        // First pass: scalar values
+        // First pass: scalar values and values emitted inline (incl. inline tables)
         foreach ($keys as $key) {
             $value = $data[$key];
             if ($value === null && $this->options->skipNulls) {
                 continue;
             }
-            if (!is_array($value) || $this->isInlineArray($value) || $this->shouldInlineTable($value)) {
+            if ($this->isInlineEmittedValue($value)) {
                 $keyPath = $this->options->dottedKeys && $path !== []
                     ? $this->encodePath([...$path, (string)$key])
                     : $this->encodeKey((string)$key);
@@ -99,24 +100,65 @@ final class Encoder
         // Second pass: tables and array of tables
         foreach ($keys as $key) {
             $value = $data[$key];
-            if (is_array($value) && !$this->isInlineArray($value) && !$this->shouldInlineTable($value)) {
-                $newPath = [...$path, (string)$key];
+            if ($value === null && $this->options->skipNulls) {
+                continue;
+            }
+            if ($this->isInlineEmittedValue($value)) {
+                continue;
+            }
 
-                if ($this->isArrayOfTables($value)) {
-                    foreach ($value as $item) {
-                        $lines[] = '';
-                        $lines[] = '[[' . $this->encodePath($newPath) . ']]';
-                        $this->encodeTable($item, $newPath, $lines);
-                    }
-                } elseif ($this->options->dottedKeys) {
-                    $this->encodeTable($value, $newPath, $lines);
-                } else {
+            $newPath = [...$path, (string)$key];
+
+            if (is_array($value) && $this->isArrayOfTables($value)) {
+                foreach ($value as $item) {
                     $lines[] = '';
-                    $lines[] = '[' . $this->encodePath($newPath) . ']';
-                    $this->encodeTable($value, $newPath, $lines);
+                    $lines[] = '[[' . $this->encodePath($newPath) . ']]';
+                    $this->encodeTable($item, $newPath, $lines);
                 }
+            } elseif ($this->options->dottedKeys) {
+                $table = $this->toTableArray($value);
+                if ($table === []) {
+                    // Dotted-key mode emits no `[table]` headers, so an empty table
+                    // (only reachable via an empty stdClass) is written inline.
+                    $lines[] = $this->encodePath($newPath) . ' = {}';
+                } else {
+                    $this->encodeTable($table, $newPath, $lines);
+                }
+            } else {
+                $lines[] = '';
+                $lines[] = '[' . $this->encodePath($newPath) . ']';
+                $this->encodeTable($this->toTableArray($value), $newPath, $lines);
             }
         }
+    }
+
+    /**
+     * Decides whether a value is emitted on the assignment line (`key = ...`) rather
+     * than as a `[table]` section. A `stdClass` always denotes a table, so it is only
+     * emitted inline when the inline-table threshold opts it in; an empty `stdClass`
+     * therefore becomes an empty `[table]` header.
+     */
+    private function isInlineEmittedValue(mixed $value): bool
+    {
+        if ($value instanceof stdClass) {
+            return $this->shouldInlineTable(get_object_vars($value));
+        }
+
+        if (!is_array($value)) {
+            return true;
+        }
+
+        return $this->isInlineArray($value) || $this->shouldInlineTable($value);
+    }
+
+    /**
+     * @param \stdClass|array<string, mixed> $value
+     *
+     * @return array<string, mixed>
+     */
+    private function toTableArray(stdClass|array $value): array
+    {
+        return $value instanceof stdClass ? get_object_vars($value) : $value;
     }
 
     private function encodeValue(mixed $value): string
@@ -177,6 +219,10 @@ final class Encoder
 
         if ($value instanceof TomlValue) {
             return $value->toTomlLiteral();
+        }
+
+        if ($value instanceof stdClass) {
+            return $this->encodeInlineTable(get_object_vars($value));
         }
 
         if (is_array($value)) {
@@ -1367,6 +1413,10 @@ final class Encoder
      */
     private function encodeInlineTable(array $value): string
     {
+        if ($value === []) {
+            return '{}';
+        }
+
         $items = [];
         $keys = array_keys($value);
         if ($this->options->sortKeys) {

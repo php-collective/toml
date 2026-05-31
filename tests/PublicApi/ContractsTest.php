@@ -12,7 +12,6 @@ use PhpCollective\Toml\Exception\ParseException;
 use PhpCollective\Toml\Exception\TomlException;
 use PhpCollective\Toml\Toml;
 use PHPUnit\Framework\TestCase;
-use stdClass;
 
 final class ContractsTest extends TestCase
 {
@@ -54,15 +53,21 @@ final class ContractsTest extends TestCase
     {
         $this->expectException(EncodeException::class);
 
+        // stdClass is now supported (encoded as a table); an arbitrary object is not.
         Toml::encode([
-            'object' => new stdClass(),
+            'object' => new class {
+            },
         ]);
     }
 
     public function testEncodeExceptionExtendsTomlException(): void
     {
         try {
-            Toml::encode(['object' => new stdClass()]);
+            Toml::encode([
+
+                'object' => new class {
+                },
+            ]);
             $this->fail('Expected EncodeException was not thrown.');
         } catch (EncodeException $exception) {
             $this->assertInstanceOf(TomlException::class, $exception);

@@ -77,7 +77,8 @@ The default API behavior is TOML 1.1-compatible. Strict TOML 1.0 parsing/decodin
 | Array of tables | Supported | |
 | Quoted keys when needed | Supported | |
 | `DateTimeInterface` | Partial | Encoded as offset datetime; zero fractional seconds are omitted and a `+00:00` offset is emitted as `Z` |
-| Empty tables | Not Yet | An empty PHP array encodes as `[]`; PHP cannot distinguish it from an empty table |
+| `stdClass` as table | Supported | A `stdClass` encodes as a table (`[key]`), or an inline table in inline contexts; an empty one emits an empty table |
+| Empty tables | Partial | An empty PHP array encodes as `[]`; use an empty `stdClass` to emit an empty `[table]` |
 | `PhpCollective\Toml\Value\LocalDate` | Supported | Encoded as local date literal |
 | `PhpCollective\Toml\Value\LocalTime` | Supported | Encoded as local time literal; strict TOML 1.0 mode normalizes missing seconds |
 | `PhpCollective\Toml\Value\LocalDateTime` | Supported | Encoded as local datetime literal; strict TOML 1.0 mode normalizes missing seconds |
