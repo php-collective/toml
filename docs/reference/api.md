@@ -42,7 +42,7 @@ $config = Toml::decodeFile('/path/to/config.toml');
 public static function parse(
     string $input,
     bool $preserveTrivia = false,
-    TomlVersion $version = TomlVersion::V11,
+    TomlVersion $version = TomlVersion::V10,
 ): Document
 ```
 
@@ -91,9 +91,8 @@ Encodes a PHP array to a TOML string.
 $toml = Toml::encode(['key' => 'value']);
 // key = "value"
 
-$strict = Toml::encode(
+$toml = Toml::encode(
     ['time' => new \PhpCollective\Toml\Value\LocalTime('07:32')],
-    new EncoderOptions(version: TomlVersion::V10),
 );
 // time = 07:32:00
 ```
@@ -250,6 +249,7 @@ public function __construct(
     ?int $multilineThreshold = null,
     ?int $inlineTableThreshold = null,
     string $indent = '    ',
+    StringStyle $stringStyle = StringStyle::Basic,
 )
 ```
 
@@ -275,7 +275,7 @@ $toml = Toml::encode($data, EncoderOptions::diffFriendly());
 | `newline` | `string` | `"\n"` | Newline sequence to use (`"\n"` or `"\r\n"`) |
 | `documentFormatting` | `DocumentFormattingMode` | `Normalized` | `Normalized` or `SourceAware` for `encodeDocument()` |
 | `skipNulls` | `bool` | `false` | Omit `null` values instead of throwing `EncodeException` |
-| `version` | `TomlVersion` | `V11` | TOML version for output rules |
+| `version` | `TomlVersion` | `V10` | TOML version for output rules |
 | `integerGrouping` | `bool` | `false` | Add underscores to large integers (e.g., `1_000_000`) |
 | `integerBase` | `IntegerBase` | `Decimal` | Radix for integers in `encode()` output (`Hexadecimal`/`Octal`/`Binary` emit `0x`/`0o`/`0b`; negatives stay decimal) |
 | `trailingComma` | `bool` | `false` | Add trailing commas to inline arrays |
@@ -285,6 +285,7 @@ $toml = Toml::encode($data, EncoderOptions::diffFriendly());
 | `multilineThreshold` | `?int` | `null` | Opt-in string length threshold for multiline basic strings in `encode()` |
 | `inlineTableThreshold` | `?int` | `null` | Opt-in key count threshold for small flat nested arrays to encode as inline tables |
 | `indent` | `string` | `'    '` | Indentation string for multiline arrays |
+| `stringStyle` | `StringStyle` | `Basic` | String formatting style for plain PHP strings |
 
 ### ArrayStyle
 
@@ -387,18 +388,43 @@ $toml = Toml::encode(
 // database.port = 5432
 ```
 
-### TOML 1.0 Mode
+### StringStyle
 
-In strict TOML 1.0 mode, `encode()` normalizes local times and local datetimes to include seconds where possible. `encodeDocument()` in `DocumentFormattingMode::SourceAware` throws `EncodeException` if preserving the parsed source would keep TOML 1.1-only syntax.
+Controls how plain PHP strings are formatted during `encode()`.
+
+```php
+use PhpCollective\Toml\Encoder\StringStyle;
+```
+
+| Style | Description |
+|-------|-------------|
+| `StringStyle::Basic` | Basic double-quoted strings. This is the default and preserves current output behavior |
+| `StringStyle::Literal` | Single-quoted literal strings when representable; falls back to basic strings when needed |
+| `StringStyle::MultiLineBasic` | Multiline basic strings |
+| `StringStyle::MultiLineLiteral` | Multiline literal strings when representable; falls back to multiline basic strings when needed |
+
+```php
+$toml = Toml::encode(
+    ['path' => 'C:\Users\name'],
+    new EncoderOptions(stringStyle: StringStyle::Literal),
+);
+// path = 'C:\Users\name'
+```
+
+### TOML Version Modes
+
+Parsing and decoding default to TOML 1.1-compatible input. Encoding defaults to TOML 1.0-compatible output for interoperability and normalizes local times and local datetimes to include seconds where possible.
+
+`encodeDocument()` in `DocumentFormattingMode::SourceAware` throws `EncodeException` if preserving the parsed source would keep TOML 1.1-only syntax while `EncoderOptions(version: TomlVersion::V10)` is active.
 
 ## TomlVersion
 
 Controls version-specific parser and encoder behavior.
 
 - `TomlVersion::V11`
-  Default behavior. Accepts TOML 1.1 syntax and emits TOML 1.1-compatible output.
+  Default parser/decoder behavior. Accepts TOML 1.1 syntax and emits TOML 1.1-compatible output when passed to `EncoderOptions`.
 - `TomlVersion::V10`
-  Strict TOML 1.0 mode for parsing, decoding, and encoding.
+  Strict TOML 1.0 mode for parsing and decoding. Default encoder behavior.
 
 ## DocumentFormattingMode
 

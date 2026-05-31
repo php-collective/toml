@@ -6,7 +6,7 @@ It is intentionally narrower than a blanket "full TOML support" claim. The goal 
 
 The sections below intentionally separate parsing/decoding, encoding, and round-trip editing so support claims stay scoped to the actual surface being described.
 
-The default API behavior is TOML 1.1-compatible. Strict TOML 1.0 parsing/decoding and encoding are available through `TomlVersion::V10` and `EncoderOptions(version: TomlVersion::V10)`.
+The default parser/decoder behavior is TOML 1.1-compatible. The default encoder behavior is TOML 1.0-compatible for interoperability; TOML 1.1 output is available through `EncoderOptions(version: TomlVersion::V11)`.
 
 ## Status Legend
 
@@ -68,7 +68,7 @@ The default API behavior is TOML 1.1-compatible. Strict TOML 1.0 parsing/decodin
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Strings | Supported | Encoded as basic strings; control characters are escaped (`\uXXXX` / shorthand) so output stays valid TOML |
+| Strings | Supported | Encoded as basic strings by default; literal and multiline styles are opt-in via `EncoderOptions`. Control characters are escaped (`\uXXXX` / shorthand) so output stays valid TOML |
 | Integers | Supported | |
 | Floats | Supported | Round-tripped at full `double` precision (shortest exact representation) |
 | Booleans | Supported | |

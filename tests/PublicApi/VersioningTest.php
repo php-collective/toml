@@ -42,6 +42,15 @@ final class VersioningTest extends TestCase
         Toml::decode("time = 07:32\n", TomlVersion::V10);
     }
 
+    public function testEncodeDefaultsToToml10Behavior(): void
+    {
+        $encoded = Toml::encode([
+            'time' => new LocalTime('07:32'),
+        ]);
+
+        $this->assertSame('time = 07:32:00', $encoded);
+    }
+
     public function testTryParseRejectsInlineTableTrailingCommaInToml10Mode(): void
     {
         $result = Toml::tryParse('point = { x = 1, }', TomlVersion::V10);

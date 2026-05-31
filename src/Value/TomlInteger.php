@@ -6,11 +6,11 @@ namespace PhpCollective\Toml\Value;
 
 use PhpCollective\Toml\Ast\Value\IntegerBase;
 
-final readonly class TomlInteger implements TomlValue
+final class TomlInteger implements TomlValue
 {
     public function __construct(
-        public int $value,
-        public IntegerBase $base = IntegerBase::Decimal,
+        public readonly int $value,
+        public readonly IntegerBase $base = IntegerBase::Decimal,
     ) {
     }
 

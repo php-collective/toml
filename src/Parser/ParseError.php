@@ -6,18 +6,18 @@ namespace PhpCollective\Toml\Parser;
 
 use PhpCollective\Toml\Lexer\Span;
 
-final readonly class ParseError
+final class ParseError
 {
     /**
      * Stable, machine-readable error classification. Derived from the message when
      * not provided explicitly.
      */
-    public ParseErrorCode $code;
+    public readonly ParseErrorCode $code;
 
     public function __construct(
-        public string $message,
-        public Span $span,
-        public ?string $hint = null,
+        public readonly string $message,
+        public readonly Span $span,
+        public readonly ?string $hint = null,
         ?ParseErrorCode $code = null,
     ) {
         $this->code = $code ?? ParseErrorCode::fromMessage($message);

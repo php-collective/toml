@@ -22,7 +22,7 @@ use PhpCollective\Toml\Ast\Value\LocalDate;
 use PhpCollective\Toml\Ast\Value\LocalDateTime;
 use PhpCollective\Toml\Ast\Value\LocalTime;
 use PhpCollective\Toml\Ast\Value\OffsetDateTime;
-use PhpCollective\Toml\Ast\Value\StringStyle;
+use PhpCollective\Toml\Ast\Value\StringStyle as AstStringStyle;
 use PhpCollective\Toml\Ast\Value\StringValue;
 use PhpCollective\Toml\Ast\Value\Value;
 use PhpCollective\Toml\Exception\EncodeException;
@@ -198,11 +198,7 @@ final class Encoder
         }
 
         if (is_string($value)) {
-            if ($this->options->multilineThreshold !== null && mb_strlen($value) > $this->options->multilineThreshold) {
-                return $this->encodeMultilineBasicString($value);
-            }
-
-            return $this->encodeString($value);
+            return $this->encodeStringValue($value);
         }
 
         if ($value instanceof DateTimeInterface) {
@@ -372,10 +368,10 @@ final class Encoder
         }
 
         return match ($value->style) {
-            StringStyle::Basic => $this->encodeString($value->value),
-            StringStyle::Literal => "'" . $value->value . "'",
-            StringStyle::MultiLineBasic => $this->encodeMultilineBasicString($value->value),
-            StringStyle::MultiLineLiteral => "'''\n" . $value->value . "'''",
+            AstStringStyle::Basic => $this->encodeString($value->value),
+            AstStringStyle::Literal => "'" . $value->value . "'",
+            AstStringStyle::MultiLineBasic => $this->encodeMultilineBasicString($value->value),
+            AstStringStyle::MultiLineLiteral => "'''\n" . $value->value . "'''",
         };
     }
 
@@ -1354,6 +1350,64 @@ final class Encoder
             static fn (array $match): string => sprintf('\u%04X', ord($match[0])),
             $value,
         ) ?? $value;
+    }
+
+    private function encodeStringValue(string $value): string
+    {
+        $style = $this->options->stringStyle;
+        if ($this->options->multilineThreshold !== null && mb_strlen($value) > $this->options->multilineThreshold) {
+            $style = $style === StringStyle::Literal
+                ? StringStyle::MultiLineLiteral
+                : StringStyle::MultiLineBasic;
+        }
+
+        return match ($style) {
+            StringStyle::Basic => $this->encodeString($value),
+            StringStyle::Literal => $this->encodeLiteralString($value),
+            StringStyle::MultiLineBasic => $this->encodeMultilineBasicString($value),
+            StringStyle::MultiLineLiteral => $this->encodeMultilineLiteralString($value),
+        };
+    }
+
+    private function encodeLiteralString(string $value): string
+    {
+        if (!$this->canUseSingleLineLiteralString($value)) {
+            return $this->encodeString($value);
+        }
+
+        return "'" . $value . "'";
+    }
+
+    private function encodeMultilineLiteralString(string $value): string
+    {
+        if (!$this->canUseMultilineLiteralString($value)) {
+            return $this->encodeMultilineBasicString($value);
+        }
+
+        return "'''\n" . $value . "'''";
+    }
+
+    private function canUseSingleLineLiteralString(string $value): bool
+    {
+        return !str_contains($value, "'")
+            && !str_contains($value, "\n")
+            && !str_contains($value, "\r")
+            && !$this->containsDisallowedControlCharacter($value);
+    }
+
+    private function canUseMultilineLiteralString(string $value): bool
+    {
+        return !str_contains($value, "'''")
+            && !$this->containsDisallowedControlCharacter($value, allowNewline: true);
+    }
+
+    private function containsDisallowedControlCharacter(string $value, bool $allowNewline = false): bool
+    {
+        if ($allowNewline) {
+            return preg_match('/[\x00-\x08\x0B-\x1F\x7F]/', $value) === 1;
+        }
+
+        return preg_match('/[\x00-\x08\x0A-\x1F\x7F]/', $value) === 1;
     }
 
     /**

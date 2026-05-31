@@ -429,6 +429,24 @@ message = "Hello\nWorld"
 path = "C:\\Users\\name"
 ```
 
+Literal or multiline string output can be enabled explicitly:
+
+```php
+use PhpCollective\Toml\Encoder\StringStyle;
+
+$toml = Toml::encode([
+    'path' => 'C:\Users\name',
+], new EncoderOptions(stringStyle: StringStyle::Literal));
+```
+
+Output:
+
+```toml
+path = 'C:\Users\name'
+```
+
+The default remains basic strings. Literal styles fall back to basic strings when a value cannot be represented safely in the requested style.
+
 ## Re-encoding from AST
 
 ```php

@@ -111,6 +111,7 @@ final class EncoderThresholdsTest extends TestCase
                 ],
             ],
             new EncoderOptions(
+                version: TomlVersion::V11,
                 sortKeys: true,
                 trailingComma: true,
                 inlineTableThreshold: 3,

@@ -7,23 +7,24 @@ namespace PhpCollective\Toml\Encoder;
 use PhpCollective\Toml\Ast\Value\IntegerBase;
 use PhpCollective\Toml\TomlVersion;
 
-final readonly class EncoderOptions
+final class EncoderOptions
 {
     public function __construct(
-        public bool $sortKeys = false,
-        public string $newline = "\n",
-        public DocumentFormattingMode $documentFormatting = DocumentFormattingMode::Normalized,
-        public bool $skipNulls = false,
-        public TomlVersion $version = TomlVersion::V11,
-        public bool $integerGrouping = false,
-        public IntegerBase $integerBase = IntegerBase::Decimal,
-        public bool $trailingComma = false,
-        public bool $dottedKeys = false,
-        public ArrayStyle $arrayStyle = ArrayStyle::Inline,
-        public int $arrayAutoThreshold = 3,
-        public ?int $multilineThreshold = null,
-        public ?int $inlineTableThreshold = null,
-        public string $indent = '    ',
+        public readonly bool $sortKeys = false,
+        public readonly string $newline = "\n",
+        public readonly DocumentFormattingMode $documentFormatting = DocumentFormattingMode::Normalized,
+        public readonly bool $skipNulls = false,
+        public readonly TomlVersion $version = TomlVersion::V10,
+        public readonly bool $integerGrouping = false,
+        public readonly IntegerBase $integerBase = IntegerBase::Decimal,
+        public readonly bool $trailingComma = false,
+        public readonly bool $dottedKeys = false,
+        public readonly ArrayStyle $arrayStyle = ArrayStyle::Inline,
+        public readonly int $arrayAutoThreshold = 3,
+        public readonly ?int $multilineThreshold = null,
+        public readonly ?int $inlineTableThreshold = null,
+        public readonly string $indent = '    ',
+        public readonly StringStyle $stringStyle = StringStyle::Basic,
     ) {
     }
 
