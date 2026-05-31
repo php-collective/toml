@@ -117,21 +117,21 @@ The default API behavior is TOML 1.1-compatible. Strict TOML 1.0 parsing/decodin
 
 ## toml-test Compliance
 
-Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0:
+Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.2.0:
 
 ### TOML 1.1
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
-| Valid | 214 | 0 | 100% |
-| Invalid | 466 | 0 | 100% |
+| Valid | 213 | 0 | 100% |
+| Invalid | 467 | 0 | 100% |
 
 ### TOML 1.0
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
-| Valid | 205 | 0 | 100% |
-| Invalid | 473 | 0 | 100% |
+| Valid | 204 | 0 | 100% |
+| Invalid | 474 | 0 | 100% |
 
 These results were measured against the library's `bin/toml-decoder` adapter for the `toml-test` tagged JSON format. TOML 1.1 results use the default adapter mode; TOML 1.0 results use `TOML_VERSION=1.0` so the decoder runs in strict TOML 1.0 mode.
 
@@ -139,7 +139,7 @@ Strict TOML 1.0 mode closes the previously documented invalid-case gaps for synt
 
 A leading UTF-8 BOM (`U+FEFF`) at the very start of a document is accepted and skipped, matching the `toml-test` corpus and common parsers.
 
-A matching `bin/toml-encoder` adapter implements the `toml-test` encoder protocol (tagged JSON to TOML). It is exercised by `TomlTestEncoderTest`, which encodes each fixture and decodes the result back to confirm valid, semantically equivalent output. Both adapters are skipped automatically when the `toml-test` corpus is not present locally.
+A matching `bin/toml-encoder` adapter implements the `toml-test` encoder protocol (tagged JSON to TOML). It is exercised by `TomlTestEncoderTest`, which encodes each fixture and decodes the result back to confirm valid, semantically equivalent output. Both adapters are skipped automatically when the `toml-test` corpus is not present locally; CI clones the pinned corpus version so these checks gate every pull request.
 
 ## Recommended Use
 

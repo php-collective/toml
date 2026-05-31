@@ -27,6 +27,11 @@ jobs:
       - name: Install dependencies
         run: composer update --prefer-dist --no-progress
 
+      # Pinned for reproducibility; bump the tag when adopting newer corpus tests.
+      # Without it, the conformance tests skip instead of gating spec compliance.
+      - name: Fetch toml-test corpus
+        run: git clone --depth 1 --branch v2.2.0 https://github.com/toml-lang/toml-test.git /tmp/toml-test
+
       - name: Run tests
         run: vendor/bin/phpunit
 
