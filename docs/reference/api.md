@@ -117,6 +117,26 @@ $toml = Toml::encodeDocument(
 
 `encodeDocument()` defaults to normalized output. With `DocumentFormattingMode::SourceAware`, it can preserve parsed comments, blank lines, lexical styles, and collection-local layout for trivia-preserving ASTs.
 
+### encodeFile()
+
+```php
+public static function encodeFile(string $path, array $data, ?EncoderOptions $options = null): void
+```
+
+Encodes a PHP array to TOML and writes it to `$path`. Throws `EncodeException` on an encoding error or if the file cannot be written.
+
+```php
+Toml::encodeFile('/path/to/config.toml', ['server' => ['port' => 8080]]);
+```
+
+### encodeDocumentFile()
+
+```php
+public static function encodeDocumentFile(string $path, Document $document, ?EncoderOptions $options = null): void
+```
+
+Encodes an AST Document to TOML and writes it to `$path`. Throws `EncodeException` on an encoding error or if the file cannot be written.
+
 ---
 
 ## ParseResult
@@ -164,10 +184,13 @@ Represents a parse error with position information.
 ### Properties
 
 ```php
-public readonly string $message;    // Error description
-public readonly Span $span;         // Position information
-public readonly ?string $hint;      // Optional fix suggestion
+public readonly string $message;        // Error description
+public readonly Span $span;             // Position information
+public readonly ?string $hint;          // Optional fix suggestion
+public readonly ParseErrorCode $code;   // Stable, machine-readable classification
 ```
+
+The `code` is a `ParseErrorCode` enum (string-backed). Prefer switching on it over matching the human-readable `message`, which is not a stable contract. See [Error Handling](../guide/error-handling).
 
 ### format()
 

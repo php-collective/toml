@@ -222,4 +222,30 @@ TOML;
         // Should have parsed elements before and after the invalid one
         $this->assertGreaterThanOrEqual(2, count($arr->items));
     }
+
+    public function testRecoveryCollectsMultipleErrorsAcrossLines(): void
+    {
+        // Lines 1, 2 and 4 are broken; line 3 is valid and must still parse.
+        $result = Toml::tryParse("a = \nb = @\nc = 1\nd = ]");
+
+        $errors = $result->getErrors();
+        $this->assertCount(3, $errors);
+        $this->assertSame([1, 2, 4], array_map(static fn ($e) => $e->span->line, $errors));
+
+        $doc = $result->getDocument();
+        $this->assertNotNull($doc);
+        $valid = array_filter($doc->items, static fn ($item) => $item instanceof KeyValue && $item->key->parts === ['c']);
+        $this->assertCount(1, $valid);
+    }
+
+    public function testRecoveryContinuesAcrossTableHeaders(): void
+    {
+        // An error in one table must not stop collection in a later table.
+        $result = Toml::tryParse("[t]\nx = \ny = 1\n[u]\nz = @");
+
+        $errors = $result->getErrors();
+        $this->assertCount(2, $errors);
+        $this->assertSame(2, $errors[0]->span->line);
+        $this->assertSame(5, $errors[1]->span->line);
+    }
 }

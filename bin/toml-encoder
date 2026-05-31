@@ -11,6 +11,7 @@
 
 require __DIR__ . '/../vendor/autoload.php';
 
+use PhpCollective\Toml\Encoder\EncoderOptions;
 use PhpCollective\Toml\Toml;
 use PhpCollective\Toml\TomlVersion;
 use PhpCollective\Toml\Value\LocalDate;
@@ -30,7 +31,7 @@ try {
         throw new RuntimeException('Top-level TOML value must be a table');
     }
 
-    echo Toml::encode($data, new PhpCollective\Toml\Encoder\EncoderOptions(version: $version));
+    echo Toml::encode($data, new EncoderOptions(version: $version));
 } catch (Throwable $e) {
     fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);
@@ -38,6 +39,8 @@ try {
 
 /**
  * Converts a toml-test tagged JSON node into the PHP value the encoder expects.
+ *
+ * @throws \RuntimeException
  */
 function convertNode(mixed $node): mixed
 {
