@@ -248,4 +248,111 @@ TOML;
         $this->assertSame(2, $errors[0]->span->line);
         $this->assertSame(5, $errors[1]->span->line);
     }
+
+    public function testMissingCommaInInlineTableReportsOnceAndRecovers(): void
+    {
+        // A single missing separator must not cascade or leak the `}` to the
+        // document parser; both key-values still parse.
+        $result = Toml::tryParse('t = { x = 1 y = 2 }');
+
+        $errors = $result->getErrors();
+        $this->assertCount(1, $errors);
+        $this->assertSame('Expected , or } in inline table', $errors[0]->message);
+
+        $doc = $result->getDocument();
+        $this->assertNotNull($doc);
+        $this->assertInstanceOf(KeyValue::class, $doc->items[0]);
+        $inlineTable = $doc->items[0]->value;
+        $this->assertInstanceOf(InlineTable::class, $inlineTable);
+        $this->assertCount(2, $inlineTable->items);
+    }
+
+    public function testMultipleMissingCommasInInlineTableRecoverEveryItem(): void
+    {
+        $result = Toml::tryParse('t = { x = 1 y = 2 z = 3 }');
+
+        $this->assertCount(2, $result->getErrors());
+
+        $doc = $result->getDocument();
+        $this->assertNotNull($doc);
+        $this->assertInstanceOf(KeyValue::class, $doc->items[0]);
+        $inlineTable = $doc->items[0]->value;
+        $this->assertInstanceOf(InlineTable::class, $inlineTable);
+        $this->assertCount(3, $inlineTable->items);
+    }
+
+    public function testMissingCommaInArrayReportsAndRecovers(): void
+    {
+        $result = Toml::tryParse('a = [1 2 3]');
+
+        // One separator error per gap, no document-level cascade.
+        $this->assertCount(2, $result->getErrors());
+        foreach ($result->getErrors() as $error) {
+            $this->assertSame('Expected , or ] in array', $error->message);
+        }
+
+        $doc = $result->getDocument();
+        $this->assertNotNull($doc);
+        $this->assertInstanceOf(KeyValue::class, $doc->items[0]);
+        $array = $doc->items[0]->value;
+        $this->assertInstanceOf(ArrayValue::class, $array);
+        $this->assertCount(3, $array->items);
+    }
+
+    public function testUnterminatedArrayDoesNotSwallowFollowingKey(): void
+    {
+        // The array is missing its `]`; `b` is a new top-level key on the next line
+        // and must not be absorbed into the array recovery.
+        $result = Toml::tryParse("a = [1\nb = 2");
+
+        $doc = $result->getDocument();
+        $this->assertNotNull($doc);
+        $keys = array_map(
+            static fn ($item) => $item instanceof KeyValue ? implode('.', $item->key->parts) : null,
+            $doc->items,
+        );
+        $this->assertContains('b', $keys);
+    }
+
+    public function testUnterminatedInlineTableDoesNotSwallowFollowingKey(): void
+    {
+        $result = Toml::tryParse("a = { x = 1\nb = 2");
+
+        $doc = $result->getDocument();
+        $this->assertNotNull($doc);
+        $keys = array_map(
+            static fn ($item) => $item instanceof KeyValue ? implode('.', $item->key->parts) : null,
+            $doc->items,
+        );
+        $this->assertContains('b', $keys);
+    }
+
+    public function testUnterminatedArrayDoesNotSwallowValueLikeKey(): void
+    {
+        // `2` is a value token but here begins a top-level `2 = 3` key; the newline
+        // boundary must keep it out of the array.
+        $result = Toml::tryParse("a = [1\n2 = 3");
+
+        $doc = $result->getDocument();
+        $this->assertNotNull($doc);
+        $keys = array_map(
+            static fn ($item) => $item instanceof KeyValue ? implode('.', $item->key->parts) : null,
+            $doc->items,
+        );
+        $this->assertContains('2', $keys);
+    }
+
+    public function testSameLineMissingCommaRecoversValueKeywordsAndMultilineStrings(): void
+    {
+        // No newline in the gaps, so these are missing-comma typos: report and recover
+        // without dropping the top-level key.
+        $result = Toml::tryParse('a = [1 nan "x"]');
+
+        $doc = $result->getDocument();
+        $this->assertNotNull($doc);
+        $this->assertInstanceOf(KeyValue::class, $doc->items[0]);
+        $array = $doc->items[0]->value;
+        $this->assertInstanceOf(ArrayValue::class, $array);
+        $this->assertCount(3, $array->items);
+    }
 }
