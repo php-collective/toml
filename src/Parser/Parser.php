@@ -148,7 +148,7 @@ final class Parser
                 $this->advance();
             } elseif ($token->is(TokenType::Invalid)) {
                 $hint = $this->getInvalidTokenHint($token->value);
-                $this->error("Invalid token: `{$token->value}`", $token->span, $hint);
+                $this->error("Invalid token: `{$token->value}`", $token->span, $hint, ParseErrorCode::fromInvalidLexeme($token->value));
                 $this->synchronize();
             } else {
                 $hint = $this->getUnexpectedTokenHint($token);
@@ -223,7 +223,7 @@ final class Parser
             $token = $this->current();
             if ($token->is(TokenType::Invalid)) {
                 $hint = $this->getInvalidTokenHint($token->value);
-                $this->error("Invalid token: `{$token->value}`", $token->span, $hint);
+                $this->error("Invalid token: `{$token->value}`", $token->span, $hint, ParseErrorCode::fromInvalidLexeme($token->value));
             } else {
                 $hint = $this->getExpectedValueHint($token);
                 $this->error('Expected value', $token->span, $hint);
@@ -274,7 +274,7 @@ final class Parser
             $token = $this->current();
             if ($token->is(TokenType::Invalid)) {
                 $hint = $this->getInvalidTokenHint($token->value);
-                $this->error("Invalid token: `{$token->value}`", $token->span, $hint);
+                $this->error("Invalid token: `{$token->value}`", $token->span, $hint, ParseErrorCode::fromInvalidLexeme($token->value));
             } else {
                 $hint = $this->getExpectedValueHint($token);
                 $this->error('Expected value', $token->span, $hint);
@@ -1251,9 +1251,9 @@ final class Parser
         return $buffer;
     }
 
-    private function error(string $message, Span $span, ?string $hint = null): void
+    private function error(string $message, Span $span, ?string $hint = null, ?ParseErrorCode $code = null): void
     {
-        $this->errors[] = new ParseError($message, $span, $hint);
+        $this->errors[] = new ParseError($message, $span, $hint, $code);
     }
 
     /**

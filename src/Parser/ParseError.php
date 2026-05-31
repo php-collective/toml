@@ -8,11 +8,19 @@ use PhpCollective\Toml\Lexer\Span;
 
 final readonly class ParseError
 {
+    /**
+     * Stable, machine-readable error classification. Derived from the message when
+     * not provided explicitly.
+     */
+    public ParseErrorCode $code;
+
     public function __construct(
         public string $message,
         public Span $span,
         public ?string $hint = null,
+        ?ParseErrorCode $code = null,
     ) {
+        $this->code = $code ?? ParseErrorCode::fromMessage($message);
     }
 
     public function format(string $input): string

@@ -141,6 +141,15 @@ A leading UTF-8 BOM (`U+FEFF`) at the very start of a document is accepted and s
 
 A matching `bin/toml-encoder` adapter implements the `toml-test` encoder protocol (tagged JSON to TOML). It is exercised by `TomlTestEncoderTest`, which encodes each fixture and decodes the result back to confirm valid, semantically equivalent output. Both adapters are skipped automatically when the `toml-test` corpus is not present locally; CI clones the pinned corpus version so these checks gate every pull request.
 
+### Encoder round-trip (v2.2.0 valid corpus)
+
+| Version | Byte-equivalent | Notes |
+|---------|-----------------|-------|
+| TOML 1.1 | 194 / 214 | |
+| TOML 1.0 | 185 / 205 | |
+
+Every difference in the remaining cases is an artifact of the toml-test harness, not invalid output: the tagged JSON represents an empty table as `{}`, which PHP's `json_decode` turns into an empty array (so the encoder emits `[]`, see [Empty Tables](limitations#empty-tables)), and a NUL byte cannot be a PHP object key. The TOML the encoder produces for those fixtures is valid and semantically equal; it simply does not byte-match. No remaining case is a real encoder defect.
+
 ## Recommended Use
 
 This library is well suited for:

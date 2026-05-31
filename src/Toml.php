@@ -32,7 +32,7 @@ final class Toml
         if ($errors !== []) {
             $error = $errors[0];
 
-            throw new ParseException($error->message, $error->span, $error->hint);
+            throw new ParseException($error->message, $error->span, $error->hint, $error->code);
         }
 
         return $value;

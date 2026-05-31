@@ -64,10 +64,32 @@ In the current implementation, `getDocument()` is still available for invalid in
 Each error contains:
 
 ```php
-$error->message;     // string - Error description
+$error->message;     // string - Error description (human-readable, not a stable contract)
 $error->span;        // Span - Position information
 $error->hint;        // string|null - Suggestion for fixing
+$error->code;        // ParseErrorCode - Stable, machine-readable classification
 ```
+
+### Stable Error Codes
+
+Each error carries a `ParseErrorCode` enum value. Switch on it instead of matching the message, which may change between releases:
+
+```php
+use PhpCollective\Toml\Parser\ParseErrorCode;
+
+foreach ($result->getErrors() as $error) {
+    match ($error->code) {
+        ParseErrorCode::DuplicateKey,
+        ParseErrorCode::DuplicateTable => reportDuplicate($error),
+        ParseErrorCode::IntegerOutOfRange => reportOverflow($error),
+        default => reportGeneric($error),
+    };
+}
+```
+
+The thrown `ParseException` exposes the same value as `$exception->errorCode` (named to avoid colliding with the base `Exception::$code`).
+
+The codes group into syntax (`ExpectedKey`, `ExpectedValue`, `ExpectedToken`, `UnexpectedToken`, `UnterminatedStatement`, `UnsupportedVersion`), lexical (`InvalidToken`, `InvalidEncoding`, `UnterminatedString`, `InvalidNumber`, `IntegerOutOfRange`, `InvalidDateTime`), and semantic (`DuplicateKey`, `DuplicateTable`, `KeyRedefinition`, `TableRedefinition`, `ArrayTableConflict`, `ExtendStaticArray`, `ExtendInlineTable`, `DottedKeyConflict`) categories, plus a generic `SyntaxError` fallback.
 
 ### Span Information
 
