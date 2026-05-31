@@ -31,6 +31,7 @@ use PhpCollective\Toml\Support\TemporalValidator;
 use PhpCollective\Toml\TomlVersion;
 use PhpCollective\Toml\Value\LocalDateTime as ValueLocalDateTime;
 use PhpCollective\Toml\Value\LocalTime as ValueLocalTime;
+use PhpCollective\Toml\Value\TomlInteger;
 use PhpCollective\Toml\Value\TomlValue;
 
 final class Encoder
@@ -1234,6 +1235,13 @@ final class Encoder
 
     private function encodeInteger(int $value): string
     {
+        // Digit grouping is decimal-only, so non-decimal bases emit the bare literal.
+        // Negatives are left to the decimal path below: TOML allows a sign only on
+        // decimal integers, and this keeps grouping working for negative values.
+        if ($this->options->integerBase !== IntegerBase::Decimal && $value >= 0) {
+            return (new TomlInteger($value, $this->options->integerBase))->toTomlLiteral();
+        }
+
         if (!$this->options->integerGrouping) {
             return (string)$value;
         }
