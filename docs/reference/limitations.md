@@ -139,6 +139,17 @@ Toml::encode(['obj' => new MyClass()]);
 Toml::encode(['obj' => (array)$myObject]);
 ```
 
+## Empty Tables
+
+PHP arrays cannot distinguish an empty table from an empty array, so `encode()` emits an empty PHP array as an empty TOML array (`key = []`), never as an empty table (`[key]`).
+
+```php
+Toml::encode(['settings' => []]);
+// Output: settings = []   (not an empty [settings] table)
+```
+
+**Workaround:** Add at least one key, or build an `encodeDocument()` AST when an explicit empty table header is required. A pure decode/encode round trip of an empty table is therefore not byte-preserving in normalized mode.
+
 ## Recursive Structures
 
 Circular references throw `EncodeException`:

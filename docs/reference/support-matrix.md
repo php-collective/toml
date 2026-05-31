@@ -68,15 +68,16 @@ The default API behavior is TOML 1.1-compatible. Strict TOML 1.0 parsing/decodin
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Strings | Supported | Encoded as basic strings |
+| Strings | Supported | Encoded as basic strings; control characters are escaped (`\uXXXX` / shorthand) so output stays valid TOML |
 | Integers | Supported | |
-| Floats | Supported | |
+| Floats | Supported | Round-tripped at full `double` precision (shortest exact representation) |
 | Booleans | Supported | |
 | Arrays | Supported | |
 | Nested tables | Supported | |
 | Array of tables | Supported | |
 | Quoted keys when needed | Supported | |
-| `DateTimeInterface` | Partial | Encoded as offset datetime with microseconds and offset |
+| `DateTimeInterface` | Partial | Encoded as offset datetime; zero fractional seconds are omitted and a `+00:00` offset is emitted as `Z` |
+| Empty tables | Not Yet | An empty PHP array encodes as `[]`; PHP cannot distinguish it from an empty table |
 | `PhpCollective\Toml\Value\LocalDate` | Supported | Encoded as local date literal |
 | `PhpCollective\Toml\Value\LocalTime` | Supported | Encoded as local time literal; strict TOML 1.0 mode normalizes missing seconds |
 | `PhpCollective\Toml\Value\LocalDateTime` | Supported | Encoded as local datetime literal; strict TOML 1.0 mode normalizes missing seconds |
@@ -134,6 +135,10 @@ Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0:
 These results were measured against the library's `bin/toml-decoder` adapter for the `toml-test` tagged JSON format. TOML 1.1 results use the default adapter mode; TOML 1.0 results use `TOML_VERSION=1.0` so the decoder runs in strict TOML 1.0 mode.
 
 Strict TOML 1.0 mode closes the previously documented invalid-case gaps for syntax that TOML 1.1 relaxes: multiline inline-table layout, inline-table trailing commas, `\xHH` byte escapes, and optional seconds in local times/datetimes.
+
+A leading UTF-8 BOM (`U+FEFF`) at the very start of a document is accepted and skipped, matching the `toml-test` corpus and common parsers.
+
+A matching `bin/toml-encoder` adapter implements the `toml-test` encoder protocol (tagged JSON to TOML). It is exercised by `TomlTestEncoderTest`, which encodes each fixture and decodes the result back to confirm valid, semantically equivalent output. Both adapters are skipped automatically when the `toml-test` corpus is not present locally.
 
 ## Recommended Use
 

@@ -140,7 +140,14 @@ final class Encoder
             if (is_nan($value)) {
                 return 'nan';
             }
-            $str = (string)$value;
+
+            // (string) casts obey the `precision` ini (default 14) and silently drop
+            // significant digits, so floats no longer round-trip. json_encode() honors
+            // `serialize_precision=-1` and emits the shortest exact representation.
+            $str = json_encode($value, JSON_PRESERVE_ZERO_FRACTION);
+            if ($str === false) {
+                $str = (string)$value;
+            }
             if (!str_contains($str, '.') && !str_contains($str, 'e') && !str_contains($str, 'E')) {
                 $str .= '.0';
             }
@@ -157,7 +164,7 @@ final class Encoder
         }
 
         if ($value instanceof DateTimeInterface) {
-            return $value->format('Y-m-d\TH:i:s.uP');
+            return $this->formatOffsetDateTime($value);
         }
 
         if ($value instanceof ValueLocalDateTime) {
@@ -302,7 +309,7 @@ final class Encoder
             $value instanceof IntegerValue => $this->encodeAstIntegerValue($value),
             $value instanceof FloatValue => $this->isReusableFloat($value) ? $value->raw : $this->encodeValue($value->value),
             $value instanceof BoolValue => $this->isReusableBool($value) ? $value->raw : ($value->value ? 'true' : 'false'),
-            $value instanceof OffsetDateTime => $this->isReusableOffsetDateTime($value) ? $value->raw : $value->value->format('Y-m-d\TH:i:s.uP'),
+            $value instanceof OffsetDateTime => $this->isReusableOffsetDateTime($value) ? $value->raw : $this->formatOffsetDateTime($value->value),
             $value instanceof LocalDateTime => $this->isReusableLocalDateTime($value) ? $value->raw : $this->normalizeLocalDateTimeLiteral($value->value),
             $value instanceof LocalDate => $this->isReusableLocalDate($value) ? $value->raw : $value->value,
             $value instanceof LocalTime => $this->isReusableLocalTime($value) ? $value->raw : $this->normalizeLocalTimeLiteral($value->value),
@@ -628,6 +635,25 @@ final class Encoder
             : $value;
     }
 
+    /**
+     * Formats an offset datetime, omitting the fractional-seconds part when it is
+     * zero (and trimming trailing zeros otherwise) so a value without sub-second
+     * precision does not gain a spurious `.000000`.
+     */
+    private function formatOffsetDateTime(DateTimeInterface $value): string
+    {
+        $literal = $value->format('Y-m-d\TH:i:s');
+        $fraction = rtrim($value->format('u'), '0');
+        if ($fraction !== '') {
+            $literal .= '.' . $fraction;
+        }
+
+        // Emit the idiomatic `Z` for UTC rather than `+00:00`.
+        $offset = $value->format('P');
+
+        return $literal . ($offset === '+00:00' ? 'Z' : $offset);
+    }
+
     private function encodeMultilineBasicString(string $value): string
     {
         $escaped = str_replace(
@@ -636,7 +662,9 @@ final class Encoder
             $value,
         );
 
-        return "\"\"\"\n{$escaped}\"\"\"";
+        // Literal newlines stay raw in multiline strings; other control characters
+        // (the regex deliberately excludes \n) must still be escaped.
+        return "\"\"\"\n" . $this->escapeControlChars($escaped) . '"""';
     }
 
     /**
@@ -706,7 +734,7 @@ final class Encoder
         }
 
         if ($value instanceof OffsetDateTime) {
-            $literal = $value->raw !== '' ? $value->raw : $value->value->format('Y-m-d\TH:i:s.uP');
+            $literal = $value->raw !== '' ? $value->raw : $this->formatOffsetDateTime($value->value);
             if (!TemporalValidator::isValidOffsetDateTime($literal, TomlVersion::V10)) {
                 throw new EncodeException('Source-aware TOML 1.0 output cannot preserve offset datetimes without seconds');
             }
@@ -1264,7 +1292,22 @@ final class Encoder
             $value,
         );
 
-        return '"' . $escaped . '"';
+        return '"' . $this->escapeControlChars($escaped) . '"';
+    }
+
+    /**
+     * Escapes any remaining control characters (U+0000-U+001F and U+007F) that have
+     * no shorthand escape as `\uXXXX`. TOML basic strings forbid raw control bytes,
+     * so emitting them would produce invalid output. Operates byte-wise; UTF-8
+     * continuation bytes are always >= 0x80 and never match this range.
+     */
+    private function escapeControlChars(string $value): string
+    {
+        return preg_replace_callback(
+            '/[\x00-\x08\x0B\x0E-\x1F\x7F]/',
+            static fn (array $match): string => sprintf('\u%04X', ord($match[0])),
+            $value,
+        ) ?? $value;
     }
 
     /**

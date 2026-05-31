@@ -22,11 +22,52 @@ final class TomlTestDecoderTest extends TestCase
 
         $output = $this->runDecoder(file_get_contents($tomlPath) ?: '');
 
+        // toml-test stores float values in varied textual forms (`300`, `1000.0`,
+        // `3.0e14`); the reference runner compares them numerically, so we do too.
         $this->assertEquals(
-            $this->decodeJsonFile($jsonPath),
-            $this->decodeJson($output),
+            self::normalizeFloatLeaves($this->decodeJsonFile($jsonPath)),
+            self::normalizeFloatLeaves($this->decodeJson($output)),
             basename($tomlPath),
         );
+    }
+
+    /**
+     * Recursively replaces every `{"type": "float", "value": "..."}` leaf's textual
+     * value with a numeric one so comparisons are value-based rather than string-based.
+     *
+     * @param array<array-key, mixed> $data
+     *
+     * @return array<array-key, mixed>
+     */
+    public static function normalizeFloatLeaves(array $data): array
+    {
+        if (
+            ($data['type'] ?? null) === 'float'
+            && array_key_exists('value', $data)
+            && is_string($data['value'])
+        ) {
+            $data['value'] = self::canonicalFloat($data['value']);
+
+            return $data;
+        }
+
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $data[$key] = self::normalizeFloatLeaves($value);
+            }
+        }
+
+        return $data;
+    }
+
+    private static function canonicalFloat(string $value): string|float
+    {
+        return match (strtolower($value)) {
+            'nan', '+nan', '-nan' => 'nan',
+            'inf', '+inf' => INF,
+            '-inf' => -INF,
+            default => (float)$value,
+        };
     }
 
     public function testNumericLikeBareKeyWithLeadingZeroParsesAsKey(): void

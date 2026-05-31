@@ -16,6 +16,7 @@ use PhpCollective\Toml\Value\LocalDate;
 use PhpCollective\Toml\Value\LocalDateTime;
 use PhpCollective\Toml\Value\LocalTime;
 use PhpCollective\Toml\Value\TomlInteger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class EncoderTest extends TestCase
@@ -699,5 +700,91 @@ final class EncoderTest extends TestCase
 
         // Large array becomes multiline with trailing commas
         $this->assertStringContainsString("large = [\n    1,\n    2,\n    3,\n    4,\n]", $result);
+    }
+
+    /**
+     * @return iterable<string, array{float}>
+     */
+    public static function precisionFloatProvider(): iterable
+    {
+        yield 'pi' => [3.141592653589793];
+        yield 'long-decimal' => [123456789.123456789];
+        yield 'max-double' => [1.7976931348623157e308];
+        yield 'min-normal' => [2.2250738585072014e-308];
+        yield 'tenth' => [0.1];
+    }
+
+    #[DataProvider('precisionFloatProvider')]
+    public function testEncodeFloatRoundTripsWithFullPrecision(float $value): void
+    {
+        // (string) casts obey precision=14 and drop digits; the encoder must emit a
+        // representation that decodes back to the exact same double.
+        $encoder = new Encoder(new EncoderOptions());
+
+        $toml = $encoder->encode(['x' => $value]);
+
+        $this->assertSame($value, Toml::decode($toml)['x']);
+    }
+
+    public function testEncodeEscapesControlCharactersInBasicString(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'esc' => "\x1B",
+            'nul' => "\x00",
+            'del' => "\x7F",
+            'unit' => "\x1F",
+        ]);
+
+        $this->assertStringContainsString('esc = "\u001B"', $result);
+        $this->assertStringContainsString('nul = "\u0000"', $result);
+        $this->assertStringContainsString('del = "\u007F"', $result);
+        $this->assertStringContainsString('unit = "\u001F"', $result);
+    }
+
+    public function testEncodeControlCharactersRoundTrip(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+        $value = "a\x00b\x1Bc\x7Fd";
+
+        $toml = $encoder->encode(['x' => $value]);
+
+        $this->assertSame($value, Toml::decode($toml)['x']);
+    }
+
+    public function testEncodeOffsetDateTimeOmitsZeroMicroseconds(): void
+    {
+        // A value without sub-second precision must not gain a spurious `.000000`.
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'x' => new DateTimeImmutable('1979-05-27T07:32:00-08:00'),
+        ]);
+
+        $this->assertStringContainsString('x = 1979-05-27T07:32:00-08:00', $result);
+        $this->assertStringNotContainsString('.000000', $result);
+    }
+
+    public function testEncodeOffsetDateTimeKeepsNonZeroFraction(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'x' => new DateTimeImmutable('1979-05-27T07:32:00.500000-08:00'),
+        ]);
+
+        $this->assertStringContainsString('x = 1979-05-27T07:32:00.5-08:00', $result);
+    }
+
+    public function testEncodeOffsetDateTimeUsesZuluForUtc(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'x' => new DateTimeImmutable('1987-07-05T17:45:00+00:00'),
+        ]);
+
+        $this->assertStringContainsString('x = 1987-07-05T17:45:00Z', $result);
     }
 }
