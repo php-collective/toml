@@ -67,6 +67,7 @@ export default defineConfig({
             { text: 'Compatibility', link: '/reference/compatibility' },
             { text: 'Comparison', link: '/reference/comparison' },
             { text: 'Support Matrix', link: '/reference/support-matrix' },
+            { text: 'Benchmarks', link: '/reference/benchmarks' },
             { text: 'Limitations', link: '/reference/limitations' },
           ],
         },
