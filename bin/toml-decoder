@@ -25,9 +25,8 @@ final class JsonObject
     /**
      * @param array<array-key, mixed> $entries
      */
-    public function __construct(
-        public array $entries = [],
-    ) {
+    public function __construct(public array $entries = [])
+    {
     }
 }
 
@@ -52,7 +51,7 @@ try {
 }
 
 /**
- * @return JsonObject
+ * @return \JsonObject
  */
 function convertDocument(Document $doc): JsonObject
 {
@@ -165,6 +164,7 @@ function formatOffset(DateTimeInterface $dt): string
     if ($offset === '+00:00') {
         return 'Z';
     }
+
     return $offset;
 }
 
@@ -250,8 +250,10 @@ function tagValue(string $type, string $value): JsonObject
 }
 
 /**
- * @param JsonObject|array<mixed> $obj
+ * @param \JsonObject|array<mixed> $obj
  * @param array<string> $path
+ * @param mixed $value
+ * @throws \RuntimeException
  */
 function setNestedValue(JsonObject|array &$obj, array $path, mixed $value): void
 {
@@ -295,7 +297,7 @@ function setNestedValue(JsonObject|array &$obj, array $path, mixed $value): void
 }
 
 /**
- * @param JsonObject|array<mixed> $obj
+ * @param \JsonObject|array<mixed> $obj
  * @param array<string> $path
  */
 function getNestedValue(JsonObject|array $obj, array $path): mixed
@@ -326,7 +328,7 @@ function getNestedValue(JsonObject|array $obj, array $path): mixed
 }
 
 /**
- * @param JsonObject|array<mixed> $value
+ * @param \JsonObject|array<mixed> $value
  */
 function isListNode(JsonObject|array $value): bool
 {

@@ -31,7 +31,9 @@ use PhpCollective\Toml\Support\TemporalValidator;
 use PhpCollective\Toml\TomlVersion;
 use PhpCollective\Toml\Value\LocalDateTime as ValueLocalDateTime;
 use PhpCollective\Toml\Value\LocalTime as ValueLocalTime;
+use PhpCollective\Toml\Value\TomlInteger;
 use PhpCollective\Toml\Value\TomlValue;
+use stdClass;
 
 final class Encoder
 {
@@ -81,13 +83,13 @@ final class Encoder
             sort($keys);
         }
 
-        // First pass: scalar values
+        // First pass: scalar values and values emitted inline (incl. inline tables)
         foreach ($keys as $key) {
             $value = $data[$key];
             if ($value === null && $this->options->skipNulls) {
                 continue;
             }
-            if (!is_array($value) || $this->isInlineArray($value) || $this->shouldInlineTable($value)) {
+            if ($this->isInlineEmittedValue($value)) {
                 $keyPath = $this->options->dottedKeys && $path !== []
                     ? $this->encodePath([...$path, (string)$key])
                     : $this->encodeKey((string)$key);
@@ -98,24 +100,65 @@ final class Encoder
         // Second pass: tables and array of tables
         foreach ($keys as $key) {
             $value = $data[$key];
-            if (is_array($value) && !$this->isInlineArray($value) && !$this->shouldInlineTable($value)) {
-                $newPath = [...$path, (string)$key];
+            if ($value === null && $this->options->skipNulls) {
+                continue;
+            }
+            if ($this->isInlineEmittedValue($value)) {
+                continue;
+            }
 
-                if ($this->isArrayOfTables($value)) {
-                    foreach ($value as $item) {
-                        $lines[] = '';
-                        $lines[] = '[[' . $this->encodePath($newPath) . ']]';
-                        $this->encodeTable($item, $newPath, $lines);
-                    }
-                } elseif ($this->options->dottedKeys) {
-                    $this->encodeTable($value, $newPath, $lines);
-                } else {
+            $newPath = [...$path, (string)$key];
+
+            if (is_array($value) && $this->isArrayOfTables($value)) {
+                foreach ($value as $item) {
                     $lines[] = '';
-                    $lines[] = '[' . $this->encodePath($newPath) . ']';
-                    $this->encodeTable($value, $newPath, $lines);
+                    $lines[] = '[[' . $this->encodePath($newPath) . ']]';
+                    $this->encodeTable($item, $newPath, $lines);
                 }
+            } elseif ($this->options->dottedKeys) {
+                $table = $this->toTableArray($value);
+                if ($table === []) {
+                    // Dotted-key mode emits no `[table]` headers, so an empty table
+                    // (only reachable via an empty stdClass) is written inline.
+                    $lines[] = $this->encodePath($newPath) . ' = {}';
+                } else {
+                    $this->encodeTable($table, $newPath, $lines);
+                }
+            } else {
+                $lines[] = '';
+                $lines[] = '[' . $this->encodePath($newPath) . ']';
+                $this->encodeTable($this->toTableArray($value), $newPath, $lines);
             }
         }
+    }
+
+    /**
+     * Decides whether a value is emitted on the assignment line (`key = ...`) rather
+     * than as a `[table]` section. A `stdClass` always denotes a table, so it is only
+     * emitted inline when the inline-table threshold opts it in; an empty `stdClass`
+     * therefore becomes an empty `[table]` header.
+     */
+    private function isInlineEmittedValue(mixed $value): bool
+    {
+        if ($value instanceof stdClass) {
+            return $this->shouldInlineTable(get_object_vars($value));
+        }
+
+        if (!is_array($value)) {
+            return true;
+        }
+
+        return $this->isInlineArray($value) || $this->shouldInlineTable($value);
+    }
+
+    /**
+     * @param \stdClass|array<string, mixed> $value
+     *
+     * @return array<string, mixed>
+     */
+    private function toTableArray(stdClass|array $value): array
+    {
+        return $value instanceof stdClass ? get_object_vars($value) : $value;
     }
 
     private function encodeValue(mixed $value): string
@@ -139,7 +182,14 @@ final class Encoder
             if (is_nan($value)) {
                 return 'nan';
             }
-            $str = (string)$value;
+
+            // (string) casts obey the `precision` ini (default 14) and silently drop
+            // significant digits, so floats no longer round-trip. json_encode() honors
+            // `serialize_precision=-1` and emits the shortest exact representation.
+            $str = json_encode($value, JSON_PRESERVE_ZERO_FRACTION);
+            if ($str === false) {
+                $str = (string)$value;
+            }
             if (!str_contains($str, '.') && !str_contains($str, 'e') && !str_contains($str, 'E')) {
                 $str .= '.0';
             }
@@ -152,7 +202,7 @@ final class Encoder
         }
 
         if ($value instanceof DateTimeInterface) {
-            return $value->format('Y-m-d\TH:i:s.uP');
+            return $this->formatOffsetDateTime($value);
         }
 
         if ($value instanceof ValueLocalDateTime) {
@@ -165,6 +215,10 @@ final class Encoder
 
         if ($value instanceof TomlValue) {
             return $value->toTomlLiteral();
+        }
+
+        if ($value instanceof stdClass) {
+            return $this->encodeInlineTable(get_object_vars($value));
         }
 
         if (is_array($value)) {
@@ -297,7 +351,7 @@ final class Encoder
             $value instanceof IntegerValue => $this->encodeAstIntegerValue($value),
             $value instanceof FloatValue => $this->isReusableFloat($value) ? $value->raw : $this->encodeValue($value->value),
             $value instanceof BoolValue => $this->isReusableBool($value) ? $value->raw : ($value->value ? 'true' : 'false'),
-            $value instanceof OffsetDateTime => $this->isReusableOffsetDateTime($value) ? $value->raw : $value->value->format('Y-m-d\TH:i:s.uP'),
+            $value instanceof OffsetDateTime => $this->isReusableOffsetDateTime($value) ? $value->raw : $this->formatOffsetDateTime($value->value),
             $value instanceof LocalDateTime => $this->isReusableLocalDateTime($value) ? $value->raw : $this->normalizeLocalDateTimeLiteral($value->value),
             $value instanceof LocalDate => $this->isReusableLocalDate($value) ? $value->raw : $value->value,
             $value instanceof LocalTime => $this->isReusableLocalTime($value) ? $value->raw : $this->normalizeLocalTimeLiteral($value->value),
@@ -623,6 +677,25 @@ final class Encoder
             : $value;
     }
 
+    /**
+     * Formats an offset datetime, omitting the fractional-seconds part when it is
+     * zero (and trimming trailing zeros otherwise) so a value without sub-second
+     * precision does not gain a spurious `.000000`.
+     */
+    private function formatOffsetDateTime(DateTimeInterface $value): string
+    {
+        $literal = $value->format('Y-m-d\TH:i:s');
+        $fraction = rtrim($value->format('u'), '0');
+        if ($fraction !== '') {
+            $literal .= '.' . $fraction;
+        }
+
+        // Emit the idiomatic `Z` for UTC rather than `+00:00`.
+        $offset = $value->format('P');
+
+        return $literal . ($offset === '+00:00' ? 'Z' : $offset);
+    }
+
     private function encodeMultilineBasicString(string $value): string
     {
         $escaped = str_replace(
@@ -631,7 +704,9 @@ final class Encoder
             $value,
         );
 
-        return "\"\"\"\n{$escaped}\"\"\"";
+        // Literal newlines stay raw in multiline strings; other control characters
+        // (the regex deliberately excludes \n) must still be escaped.
+        return "\"\"\"\n" . $this->escapeControlChars($escaped) . '"""';
     }
 
     /**
@@ -701,7 +776,7 @@ final class Encoder
         }
 
         if ($value instanceof OffsetDateTime) {
-            $literal = $value->raw !== '' ? $value->raw : $value->value->format('Y-m-d\TH:i:s.uP');
+            $literal = $value->raw !== '' ? $value->raw : $this->formatOffsetDateTime($value->value);
             if (!TemporalValidator::isValidOffsetDateTime($literal, TomlVersion::V10)) {
                 throw new EncodeException('Source-aware TOML 1.0 output cannot preserve offset datetimes without seconds');
             }
@@ -1230,6 +1305,13 @@ final class Encoder
 
     private function encodeInteger(int $value): string
     {
+        // Digit grouping is decimal-only, so non-decimal bases emit the bare literal.
+        // Negatives are left to the decimal path below: TOML allows a sign only on
+        // decimal integers, and this keeps grouping working for negative values.
+        if ($this->options->integerBase !== IntegerBase::Decimal && $value >= 0) {
+            return (new TomlInteger($value, $this->options->integerBase))->toTomlLiteral();
+        }
+
         if (!$this->options->integerGrouping) {
             return (string)$value;
         }
@@ -1252,7 +1334,22 @@ final class Encoder
             $value,
         );
 
-        return '"' . $escaped . '"';
+        return '"' . $this->escapeControlChars($escaped) . '"';
+    }
+
+    /**
+     * Escapes any remaining control characters (U+0000-U+001F and U+007F) that have
+     * no shorthand escape as `\uXXXX`. TOML basic strings forbid raw control bytes,
+     * so emitting them would produce invalid output. Operates byte-wise; UTF-8
+     * continuation bytes are always >= 0x80 and never match this range.
+     */
+    private function escapeControlChars(string $value): string
+    {
+        return preg_replace_callback(
+            '/[\x00-\x08\x0B\x0E-\x1F\x7F]/',
+            static fn (array $match): string => sprintf('\u%04X', ord($match[0])),
+            $value,
+        ) ?? $value;
     }
 
     private function encodeStringValue(string $value): string
@@ -1370,6 +1467,10 @@ final class Encoder
      */
     private function encodeInlineTable(array $value): string
     {
+        if ($value === []) {
+            return '{}';
+        }
+
         $items = [];
         $keys = array_keys($value);
         if ($this->options->sortKeys) {

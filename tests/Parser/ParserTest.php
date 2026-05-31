@@ -104,4 +104,36 @@ final class ParserTest extends TestCase
         $this->assertInstanceOf(KeyValue::class, $kv);
         $this->assertSame([1, 2, 3], $kv->value->getValue());
     }
+
+    public function testParseSkipsLeadingUtf8Bom(): void
+    {
+        $parser = new Parser();
+        $doc = $parser->parse("\u{FEFF}a = 1");
+
+        $this->assertEmpty($parser->getErrors());
+        $kv = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $kv);
+        $this->assertSame(['a'], $kv->key->parts);
+        $this->assertSame(1, $kv->value->getValue());
+    }
+
+    public function testParseSkipsLeadingBomBeforeComment(): void
+    {
+        $parser = new Parser();
+        $doc = $parser->parse("\u{FEFF}# comment\nb = 2");
+
+        $this->assertEmpty($parser->getErrors());
+        $kv = $doc->items[0];
+        $this->assertInstanceOf(KeyValue::class, $kv);
+        $this->assertSame(['b'], $kv->key->parts);
+    }
+
+    public function testBomOnlyStrippedAtStart(): void
+    {
+        // A BOM that is not the very first byte is a normal (invalid) character.
+        $parser = new Parser();
+        $parser->parse("a = 1\n\u{FEFF}b = 2");
+
+        $this->assertNotEmpty($parser->getErrors());
+    }
 }

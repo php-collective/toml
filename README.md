@@ -117,6 +117,11 @@ $toml = Toml::encode($array, new EncoderOptions(inlineTableThreshold: 3));
 // Strict TOML 1.0 output
 $toml = Toml::encode($array, new EncoderOptions(version: TomlVersion::V10));
 
+// Emit integers in hexadecimal (or Octal / Binary)
+use PhpCollective\Toml\Ast\Value\IntegerBase;
+$toml = Toml::encode(['mask' => 255], new EncoderOptions(integerBase: IntegerBase::Hexadecimal));
+// mask = 0xFF
+
 // encodeDocument() is normalized by default
 $document = Toml::parse($tomlString, true);
 $toml = Toml::encodeDocument($document);
@@ -137,6 +142,7 @@ $toml = Toml::encodeDocument(
 `skipNulls` lets `encode()` omit nulls instead of throwing.
 `multilineThreshold` (`?int`, default `null`) keeps current single-line strings when unset; when set, scalar strings longer than the threshold are encoded as multiline basic strings.
 `inlineTableThreshold` (`?int`, default `null`) keeps nested tables as table sections when unset; when set, flat nested arrays with at most that many keys are encoded inline, for example `point = { x = 1, y = 2 }`.
+`integerBase` (`IntegerBase`, default `IntegerBase::Decimal`) controls the radix for integers produced by `encode()` (and normalized `encodeDocument()` output). `Hexadecimal`, `Octal`, and `Binary` emit `0x`/`0o`/`0b` literals. Since TOML allows a sign only on decimal integers, negative values always fall back to decimal. Source-aware document re-encoding preserves each integer's original source base regardless of this option.
 
 ## Error Handling
 
@@ -186,6 +192,8 @@ For explicit local temporal encoding, use:
 - `PhpCollective\Toml\Value\LocalDate`
 - `PhpCollective\Toml\Value\LocalTime`
 - `PhpCollective\Toml\Value\LocalDateTime`
+
+For per-value integer bases, wrap values in `PhpCollective\Toml\Value\TomlInteger` (e.g. `new TomlInteger(255, IntegerBase::Hexadecimal)` → `0xFF`).
 
 ## Comparison with Other PHP Libraries
 

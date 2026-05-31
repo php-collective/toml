@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhpCollective\Toml\Encoder;
 
+use PhpCollective\Toml\Ast\Value\IntegerBase;
 use PhpCollective\Toml\TomlVersion;
 
 final class EncoderOptions
@@ -15,6 +16,7 @@ final class EncoderOptions
         public readonly bool $skipNulls = false,
         public readonly TomlVersion $version = TomlVersion::V10,
         public readonly bool $integerGrouping = false,
+        public readonly IntegerBase $integerBase = IntegerBase::Decimal,
         public readonly bool $trailingComma = false,
         public readonly bool $dottedKeys = false,
         public readonly ArrayStyle $arrayStyle = ArrayStyle::Inline,

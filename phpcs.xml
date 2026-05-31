@@ -3,6 +3,9 @@
     <arg value="nps"/>
     <arg name="cache" value=".phpcs.cache"/>
 
+    <file>bin/toml-decoder</file>
+    <file>bin/toml-encoder</file>
+    <file>bin/toml-validate</file>
     <file>src/</file>
     <file>tests/</file>
 
@@ -12,5 +15,11 @@
 
     <rule ref="SlevomatCodingStandard.Functions.RequireTrailingCommaInDeclaration"/>
     <rule ref="SlevomatCodingStandard.Functions.RequireTrailingCommaInClosureUse"/>
+
+    <!-- bin/ entry-point scripts are extensionless executables and may define a
+         script-local helper class without a namespace. -->
+    <rule ref="PSR1.Classes.ClassDeclaration.MissingNamespace">
+        <exclude-pattern>bin/*</exclude-pattern>
+    </rule>
 
 </ruleset>

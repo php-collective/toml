@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpCollective\Toml\Test\Encoder;
 
 use DateTimeImmutable;
+use PhpCollective\Toml\Ast\Value\IntegerBase;
 use PhpCollective\Toml\Encoder\ArrayStyle;
 use PhpCollective\Toml\Encoder\DocumentFormattingMode;
 use PhpCollective\Toml\Encoder\Encoder;
@@ -15,7 +16,10 @@ use PhpCollective\Toml\Toml;
 use PhpCollective\Toml\Value\LocalDate;
 use PhpCollective\Toml\Value\LocalDateTime;
 use PhpCollective\Toml\Value\LocalTime;
+use PhpCollective\Toml\Value\TomlInteger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 final class EncoderTest extends TestCase
 {
@@ -411,6 +415,122 @@ final class EncoderTest extends TestCase
         $this->assertStringContainsString('large = 1000000', $result);
     }
 
+    public function testEncodeIntegerBaseHexadecimal(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(integerBase: IntegerBase::Hexadecimal));
+
+        $result = $encoder->encode([
+            'zero' => 0,
+            'mask' => 255,
+            'color' => 16711935,
+        ]);
+
+        $this->assertStringContainsString('zero = 0x0', $result);
+        $this->assertStringContainsString('mask = 0xFF', $result);
+        $this->assertStringContainsString('color = 0xFF00FF', $result);
+    }
+
+    public function testEncodeIntegerBaseOctal(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(integerBase: IntegerBase::Octal));
+
+        $result = $encoder->encode([
+            'perms' => 493,
+        ]);
+
+        $this->assertStringContainsString('perms = 0o755', $result);
+    }
+
+    public function testEncodeIntegerBaseBinary(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(integerBase: IntegerBase::Binary));
+
+        $result = $encoder->encode([
+            'flags' => 10,
+        ]);
+
+        $this->assertStringContainsString('flags = 0b1010', $result);
+    }
+
+    public function testEncodeIntegerBaseFallsBackToDecimalForNegativeValues(): void
+    {
+        // TOML hex/octal/binary literals are unsigned; negatives stay decimal so the
+        // output remains valid TOML.
+        $encoder = new Encoder(new EncoderOptions(integerBase: IntegerBase::Hexadecimal));
+
+        $result = $encoder->encode([
+            'negative' => -255,
+        ]);
+
+        $this->assertStringContainsString('negative = -255', $result);
+        $this->assertSame(-255, Toml::decode($result)['negative']);
+    }
+
+    public function testEncodeIntegerBaseDefaultsToDecimal(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'value' => 255,
+        ]);
+
+        $this->assertStringContainsString('value = 255', $result);
+    }
+
+    public function testEncodeIntegerBaseRoundTripsToSameValue(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(integerBase: IntegerBase::Hexadecimal));
+
+        $toml = $encoder->encode([
+            'mask' => 255,
+        ]);
+
+        $this->assertSame(255, Toml::decode($toml)['mask']);
+    }
+
+    public function testEncodeIntegerBaseDoesNotAffectSourceAwareDocumentBase(): void
+    {
+        // integerBase governs the array-encode path; source-aware document
+        // re-encoding preserves each integer's original source base instead.
+        $document = Toml::parse('mask = 0xFF' . "\n", true);
+
+        $toml = Toml::encodeDocument(
+            $document,
+            new EncoderOptions(
+                documentFormatting: DocumentFormattingMode::SourceAware,
+                integerBase: IntegerBase::Octal,
+            ),
+        );
+
+        $this->assertStringContainsString('0xFF', $toml);
+        $this->assertStringNotContainsString('0o', $toml);
+    }
+
+    public function testEncodeMixedIntegerBasesViaTomlIntegerValueObject(): void
+    {
+        // TomlInteger lets a plain array carry per-value bases, unlike the global
+        // integerBase option which applies one radix to every integer.
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'mask' => new TomlInteger(255, IntegerBase::Hexadecimal),
+            'mode' => new TomlInteger(493, IntegerBase::Octal),
+            'flags' => new TomlInteger(10, IntegerBase::Binary),
+            'count' => 10,
+        ]);
+
+        $this->assertStringContainsString('mask = 0xFF', $result);
+        $this->assertStringContainsString('mode = 0o755', $result);
+        $this->assertStringContainsString('flags = 0b1010', $result);
+        $this->assertStringContainsString('count = 10', $result);
+
+        $decoded = Toml::decode($result);
+        $this->assertSame(255, $decoded['mask']);
+        $this->assertSame(493, $decoded['mode']);
+        $this->assertSame(10, $decoded['flags']);
+        $this->assertSame(10, $decoded['count']);
+    }
+
     public function testEncodeTrailingComma(): void
     {
         $encoder = new Encoder(new EncoderOptions(trailingComma: true));
@@ -639,5 +759,173 @@ final class EncoderTest extends TestCase
 
         // Large array becomes multiline with trailing commas
         $this->assertStringContainsString("large = [\n    1,\n    2,\n    3,\n    4,\n]", $result);
+    }
+
+    /**
+     * @return iterable<string, array{float}>
+     */
+    public static function precisionFloatProvider(): iterable
+    {
+        yield 'pi' => [3.141592653589793];
+        yield 'long-decimal' => [123456789.123456789];
+        yield 'max-double' => [1.7976931348623157e308];
+        yield 'min-normal' => [2.2250738585072014e-308];
+        yield 'tenth' => [0.1];
+    }
+
+    #[DataProvider('precisionFloatProvider')]
+    public function testEncodeFloatRoundTripsWithFullPrecision(float $value): void
+    {
+        // (string) casts obey precision=14 and drop digits; the encoder must emit a
+        // representation that decodes back to the exact same double.
+        $encoder = new Encoder(new EncoderOptions());
+
+        $toml = $encoder->encode(['x' => $value]);
+
+        $this->assertSame($value, Toml::decode($toml)['x']);
+    }
+
+    public function testEncodeEscapesControlCharactersInBasicString(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'esc' => "\x1B",
+            'nul' => "\x00",
+            'del' => "\x7F",
+            'unit' => "\x1F",
+        ]);
+
+        $this->assertStringContainsString('esc = "\u001B"', $result);
+        $this->assertStringContainsString('nul = "\u0000"', $result);
+        $this->assertStringContainsString('del = "\u007F"', $result);
+        $this->assertStringContainsString('unit = "\u001F"', $result);
+    }
+
+    public function testEncodeControlCharactersRoundTrip(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+        $value = "a\x00b\x1Bc\x7Fd";
+
+        $toml = $encoder->encode(['x' => $value]);
+
+        $this->assertSame($value, Toml::decode($toml)['x']);
+    }
+
+    public function testEncodeOffsetDateTimeOmitsZeroMicroseconds(): void
+    {
+        // A value without sub-second precision must not gain a spurious `.000000`.
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'x' => new DateTimeImmutable('1979-05-27T07:32:00-08:00'),
+        ]);
+
+        $this->assertStringContainsString('x = 1979-05-27T07:32:00-08:00', $result);
+        $this->assertStringNotContainsString('.000000', $result);
+    }
+
+    public function testEncodeOffsetDateTimeKeepsNonZeroFraction(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'x' => new DateTimeImmutable('1979-05-27T07:32:00.500000-08:00'),
+        ]);
+
+        $this->assertStringContainsString('x = 1979-05-27T07:32:00.5-08:00', $result);
+    }
+
+    public function testEncodeOffsetDateTimeUsesZuluForUtc(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode([
+            'x' => new DateTimeImmutable('1987-07-05T17:45:00+00:00'),
+        ]);
+
+        $this->assertStringContainsString('x = 1987-07-05T17:45:00Z', $result);
+    }
+
+    public function testEncodeEmptyStdClassAsEmptyTable(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode(['settings' => new stdClass()]);
+
+        $this->assertSame('[settings]', trim($result));
+    }
+
+    public function testEncodeEmptyArrayStillEncodesAsArray(): void
+    {
+        // Backward compatible: an empty array is unchanged by stdClass table support.
+        $encoder = new Encoder(new EncoderOptions());
+
+        $result = $encoder->encode(['arr' => []]);
+
+        $this->assertSame('arr = []', trim($result));
+    }
+
+    public function testEncodeStdClassAsTableSection(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $object = new stdClass();
+        $object->host = 'localhost';
+        $object->port = 8080;
+
+        $result = $encoder->encode(['server' => $object]);
+
+        $this->assertStringContainsString('[server]', $result);
+        $this->assertStringContainsString('host = "localhost"', $result);
+        $this->assertStringContainsString('port = 8080', $result);
+    }
+
+    public function testEncodeNestedEmptyStdClass(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $outer = new stdClass();
+        $outer->inner = new stdClass();
+
+        $result = $encoder->encode(['a' => $outer]);
+
+        $this->assertStringContainsString('[a]', $result);
+        $this->assertStringContainsString('[a.inner]', $result);
+    }
+
+    public function testEncodeStdClassInsideArrayAsInlineTable(): void
+    {
+        $encoder = new Encoder(new EncoderOptions());
+
+        $populated = new stdClass();
+        $populated->x = 1;
+
+        $result = $encoder->encode(['list' => [$populated, new stdClass()]]);
+
+        $this->assertStringContainsString('list = [{ x = 1 }, {}]', $result);
+    }
+
+    public function testEncodeStdClassRespectsInlineTableThreshold(): void
+    {
+        $encoder = new Encoder(new EncoderOptions(inlineTableThreshold: 3));
+
+        $point = new stdClass();
+        $point->x = 1;
+        $point->y = 2;
+
+        $result = $encoder->encode(['p' => $point]);
+
+        $this->assertSame('p = { x = 1, y = 2 }', trim($result));
+    }
+
+    public function testEncodeEmptyStdClassWithDottedKeys(): void
+    {
+        // Dotted-key mode emits no [table] headers, so an empty table is written inline.
+        $encoder = new Encoder(new EncoderOptions(dottedKeys: true));
+
+        $result = $encoder->encode(['a' => (object)['b' => new stdClass()]]);
+
+        $this->assertSame('a.b = {}', trim($result));
     }
 }

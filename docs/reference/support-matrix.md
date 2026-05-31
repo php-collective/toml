@@ -68,15 +68,17 @@ The default parser/decoder behavior is TOML 1.1-compatible. The default encoder 
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Strings | Supported | Encoded as basic strings by default; literal and multiline styles are opt-in via `EncoderOptions` |
+| Strings | Supported | Encoded as basic strings by default; literal and multiline styles are opt-in via `EncoderOptions`. Control characters are escaped (`\uXXXX` / shorthand) so output stays valid TOML |
 | Integers | Supported | |
-| Floats | Supported | |
+| Floats | Supported | Round-tripped at full `double` precision (shortest exact representation) |
 | Booleans | Supported | |
 | Arrays | Supported | |
 | Nested tables | Supported | |
 | Array of tables | Supported | |
 | Quoted keys when needed | Supported | |
-| `DateTimeInterface` | Partial | Encoded as offset datetime with microseconds and offset |
+| `DateTimeInterface` | Partial | Encoded as offset datetime; zero fractional seconds are omitted and a `+00:00` offset is emitted as `Z` |
+| `stdClass` as table | Supported | A `stdClass` encodes as a table (`[key]`), or an inline table in inline contexts; an empty one emits an empty table |
+| Empty tables | Partial | An empty PHP array encodes as `[]`; use an empty `stdClass` to emit an empty `[table]` |
 | `PhpCollective\Toml\Value\LocalDate` | Supported | Encoded as local date literal |
 | `PhpCollective\Toml\Value\LocalTime` | Supported | Encoded as local time literal; strict TOML 1.0 mode normalizes missing seconds |
 | `PhpCollective\Toml\Value\LocalDateTime` | Supported | Encoded as local datetime literal; strict TOML 1.0 mode normalizes missing seconds |
@@ -115,25 +117,38 @@ The default parser/decoder behavior is TOML 1.1-compatible. The default encoder 
 
 ## toml-test Compliance
 
-Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.1.0:
+Tested against [toml-test](https://github.com/toml-lang/toml-test) v2.2.0:
 
 ### TOML 1.1
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
-| Valid | 214 | 0 | 100% |
-| Invalid | 466 | 0 | 100% |
+| Valid | 213 | 0 | 100% |
+| Invalid | 467 | 0 | 100% |
 
 ### TOML 1.0
 
 | Test Type | Passed | Failed | Compliance |
 |-----------|--------|--------|------------|
-| Valid | 205 | 0 | 100% |
-| Invalid | 473 | 0 | 100% |
+| Valid | 204 | 0 | 100% |
+| Invalid | 474 | 0 | 100% |
 
 These results were measured against the library's `bin/toml-decoder` adapter for the `toml-test` tagged JSON format. TOML 1.1 results use the default adapter mode; TOML 1.0 results use `TOML_VERSION=1.0` so the decoder runs in strict TOML 1.0 mode.
 
 Strict TOML 1.0 mode closes the previously documented invalid-case gaps for syntax that TOML 1.1 relaxes: multiline inline-table layout, inline-table trailing commas, `\xHH` byte escapes, and optional seconds in local times/datetimes.
+
+A leading UTF-8 BOM (`U+FEFF`) at the very start of a document is accepted and skipped, matching the `toml-test` corpus and common parsers.
+
+A matching `bin/toml-encoder` adapter implements the `toml-test` encoder protocol (tagged JSON to TOML). It is exercised by `TomlTestEncoderTest`, which encodes each fixture and decodes the result back to confirm valid, semantically equivalent output. Both adapters are skipped automatically when the `toml-test` corpus is not present locally; CI clones the pinned corpus version so these checks gate every pull request.
+
+### Encoder round-trip (v2.2.0 valid corpus)
+
+| Version | Byte-equivalent | Notes |
+|---------|-----------------|-------|
+| TOML 1.1 | 194 / 214 | |
+| TOML 1.0 | 185 / 205 | |
+
+Every difference in the remaining cases is an artifact of the toml-test harness, not invalid output: the tagged JSON represents an empty table as `{}`, which PHP's `json_decode` turns into an empty array (so the encoder emits `[]`, see [Empty Tables](limitations#empty-tables)), and a NUL byte cannot be a PHP object key. The TOML the encoder produces for those fixtures is valid and semantically equal; it simply does not byte-match. No remaining case is a real encoder defect.
 
 ## Recommended Use
 

@@ -116,6 +116,26 @@ $toml = Toml::encodeDocument(
 
 `encodeDocument()` defaults to normalized output. With `DocumentFormattingMode::SourceAware`, it can preserve parsed comments, blank lines, lexical styles, and collection-local layout for trivia-preserving ASTs.
 
+### encodeFile()
+
+```php
+public static function encodeFile(string $path, array $data, ?EncoderOptions $options = null): void
+```
+
+Encodes a PHP array to TOML and writes it to `$path`. Throws `EncodeException` on an encoding error or if the file cannot be written.
+
+```php
+Toml::encodeFile('/path/to/config.toml', ['server' => ['port' => 8080]]);
+```
+
+### encodeDocumentFile()
+
+```php
+public static function encodeDocumentFile(string $path, Document $document, ?EncoderOptions $options = null): void
+```
+
+Encodes an AST Document to TOML and writes it to `$path`. Throws `EncodeException` on an encoding error or if the file cannot be written.
+
 ---
 
 ## ParseResult
@@ -163,10 +183,13 @@ Represents a parse error with position information.
 ### Properties
 
 ```php
-public readonly string $message;    // Error description
-public readonly Span $span;         // Position information
-public readonly ?string $hint;      // Optional fix suggestion
+public readonly string $message;        // Error description
+public readonly Span $span;             // Position information
+public readonly ?string $hint;          // Optional fix suggestion
+public readonly ParseErrorCode $code;   // Stable, machine-readable classification
 ```
+
+The `code` is a `ParseErrorCode` enum (string-backed). Prefer switching on it over matching the human-readable `message`, which is not a stable contract. See [Error Handling](../guide/error-handling).
 
 ### format()
 
@@ -218,6 +241,7 @@ public function __construct(
     bool $skipNulls = false,
     TomlVersion $version = TomlVersion::V11,
     bool $integerGrouping = false,
+    IntegerBase $integerBase = IntegerBase::Decimal,
     bool $trailingComma = false,
     bool $dottedKeys = false,
     ArrayStyle $arrayStyle = ArrayStyle::Inline,
@@ -253,6 +277,7 @@ $toml = Toml::encode($data, EncoderOptions::diffFriendly());
 | `skipNulls` | `bool` | `false` | Omit `null` values instead of throwing `EncodeException` |
 | `version` | `TomlVersion` | `V10` | TOML version for output rules |
 | `integerGrouping` | `bool` | `false` | Add underscores to large integers (e.g., `1_000_000`) |
+| `integerBase` | `IntegerBase` | `Decimal` | Radix for integers in `encode()` output (`Hexadecimal`/`Octal`/`Binary` emit `0x`/`0o`/`0b`; negatives stay decimal) |
 | `trailingComma` | `bool` | `false` | Add trailing commas to inline arrays |
 | `dottedKeys` | `bool` | `false` | Use dotted keys instead of table sections |
 | `arrayStyle` | `ArrayStyle` | `Inline` | Array formatting style (see below) |

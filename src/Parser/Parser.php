@@ -148,7 +148,7 @@ final class Parser
                 $this->advance();
             } elseif ($token->is(TokenType::Invalid)) {
                 $hint = $this->getInvalidTokenHint($token->value);
-                $this->error("Invalid token: `{$token->value}`", $token->span, $hint);
+                $this->error("Invalid token: `{$token->value}`", $token->span, $hint, ParseErrorCode::fromInvalidLexeme($token->value));
                 $this->synchronize();
             } else {
                 $hint = $this->getUnexpectedTokenHint($token);
@@ -223,7 +223,7 @@ final class Parser
             $token = $this->current();
             if ($token->is(TokenType::Invalid)) {
                 $hint = $this->getInvalidTokenHint($token->value);
-                $this->error("Invalid token: `{$token->value}`", $token->span, $hint);
+                $this->error("Invalid token: `{$token->value}`", $token->span, $hint, ParseErrorCode::fromInvalidLexeme($token->value));
             } else {
                 $hint = $this->getExpectedValueHint($token);
                 $this->error('Expected value', $token->span, $hint);
@@ -274,7 +274,7 @@ final class Parser
             $token = $this->current();
             if ($token->is(TokenType::Invalid)) {
                 $hint = $this->getInvalidTokenHint($token->value);
-                $this->error("Invalid token: `{$token->value}`", $token->span, $hint);
+                $this->error("Invalid token: `{$token->value}`", $token->span, $hint, ParseErrorCode::fromInvalidLexeme($token->value));
             } else {
                 $hint = $this->getExpectedValueHint($token);
                 $this->error('Expected value', $token->span, $hint);
@@ -666,13 +666,24 @@ final class Parser
             $items[] = $value;
 
             $trailingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
+            $gapHadNewline = $this->triviaContainsNewline($trailingTrivia);
             if (!$this->preserveTrivia) {
-                $this->skipTriviaInCollection();
+                $gapHadNewline = $this->skipTriviaInCollection();
             }
 
             if (!$this->check(TokenType::RightBracket)) {
                 if (!$this->match(TokenType::Comma)) {
-                    break;
+                    // A newline before the next token suggests an unterminated array,
+                    // so hand control back to the document parser instead of swallowing
+                    // following top-level keys. A same-line gap is a missing comma:
+                    // report once and recover in place rather than cascading.
+                    if ($gapHadNewline) {
+                        break;
+                    }
+
+                    $this->error('Expected , or ] in array', $this->current()->span);
+
+                    continue;
                 }
 
                 if ($this->preserveTrivia) {
@@ -751,14 +762,25 @@ final class Parser
             }
 
             $trailingTrivia = $this->preserveTrivia ? $this->collectCollectionTrivia() : [];
-            $hasInlineTableLayoutNewline = $this->triviaContainsNewline($trailingTrivia) || $hasInlineTableLayoutNewline;
+            $gapHadNewline = $this->triviaContainsNewline($trailingTrivia);
             if (!$this->preserveTrivia) {
-                $hasInlineTableLayoutNewline = $this->skipTriviaInCollection() || $hasInlineTableLayoutNewline;
+                $gapHadNewline = $this->skipTriviaInCollection() || $gapHadNewline;
             }
+            $hasInlineTableLayoutNewline = $gapHadNewline || $hasInlineTableLayoutNewline;
 
             if (!$this->check(TokenType::RightBrace)) {
                 if (!$this->match(TokenType::Comma)) {
-                    break;
+                    // A newline before the next token suggests an unterminated table,
+                    // so hand control back to the document parser. A same-line gap is
+                    // a missing comma: report once and recover in place rather than
+                    // leaking the remainder and cascading into misleading errors.
+                    if ($gapHadNewline) {
+                        break;
+                    }
+
+                    $this->error('Expected , or } in inline table', $this->current()->span);
+
+                    continue;
                 }
                 if ($this->preserveTrivia) {
                     $kv->setTrailingTrivia($trailingTrivia);
@@ -1251,9 +1273,9 @@ final class Parser
         return $buffer;
     }
 
-    private function error(string $message, Span $span, ?string $hint = null): void
+    private function error(string $message, Span $span, ?string $hint = null, ?ParseErrorCode $code = null): void
     {
-        $this->errors[] = new ParseError($message, $span, $hint);
+        $this->errors[] = new ParseError($message, $span, $hint, $code);
     }
 
     /**

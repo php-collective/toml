@@ -129,7 +129,7 @@ This also works for nulls in arrays and inline tables.
 
 ## Object Encoding
 
-Only `DateTimeInterface` objects and explicit TOML value wrappers are supported for direct object encoding. Other objects must be converted to arrays:
+`DateTimeInterface` objects, explicit TOML value wrappers, and `stdClass` are supported for direct object encoding. `stdClass` is treated as a table (see [Empty Tables](#empty-tables)). Any other object throws `EncodeException` and must be converted to an array first:
 
 ```php
 // This throws EncodeException
@@ -138,6 +138,30 @@ Toml::encode(['obj' => new MyClass()]);
 // Convert to array first
 Toml::encode(['obj' => (array)$myObject]);
 ```
+
+## Empty Tables
+
+PHP arrays cannot distinguish an empty table from an empty array, so `encode()` emits an empty PHP array as an empty TOML array (`key = []`), never as an empty table (`[key]`).
+
+```php
+Toml::encode(['settings' => []]);
+// Output: settings = []   (not an empty [settings] table)
+```
+
+**Workaround:** Use `stdClass` to force table output. An empty `stdClass` becomes an empty table header, and a populated one is encoded just like an associative array:
+
+```php
+Toml::encode(['settings' => new stdClass()]);
+// Output: [settings]
+
+$server = new stdClass();
+$server->host = 'localhost';
+Toml::encode(['server' => $server]);
+// Output: [server]
+//         host = "localhost"
+```
+
+Inside an inline context (an array element, or under `inlineTableThreshold`), a `stdClass` is emitted as an inline table, so an empty one becomes `{}`. A pure decode/encode round trip of an empty table is still not byte-preserving in normalized mode, because decoding yields a plain empty array; use `DocumentFormattingMode::SourceAware` to preserve the original `[]` vs `{}` form.
 
 ## Recursive Structures
 
