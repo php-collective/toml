@@ -166,9 +166,9 @@ final class Lexer
 
         // Check for multi-line
         if (
-            $this->pos + 2 < $this->length &&
-            $this->input[$this->pos + 1] === '"' &&
-            $this->input[$this->pos + 2] === '"'
+            $this->pos + 2 < $this->length
+            && $this->input[$this->pos + 1] === '"'
+            && $this->input[$this->pos + 2] === '"'
         ) {
             return $this->multiLineBasicString();
         }
@@ -293,18 +293,18 @@ final class Lexer
         $valid = true;
         while ($this->pos < $this->length) {
             if (
-                $this->pos + 2 < $this->length &&
-                $this->input[$this->pos] === '"' &&
-                $this->input[$this->pos + 1] === '"' &&
-                $this->input[$this->pos + 2] === '"'
+                $this->pos + 2 < $this->length
+                && $this->input[$this->pos] === '"'
+                && $this->input[$this->pos + 1] === '"'
+                && $this->input[$this->pos + 2] === '"'
             ) {
                 // TOML allows up to 2 quotes at the end before closing """
                 // So """"" = "" content + """ close, """""" = "" content + """ close + " after
                 $quoteCount = 3;
                 while (
-                    $quoteCount < 5 &&
-                    $this->pos + $quoteCount < $this->length &&
-                    $this->input[$this->pos + $quoteCount] === '"'
+                    $quoteCount < 5
+                    && $this->pos + $quoteCount < $this->length
+                    && $this->input[$this->pos + $quoteCount] === '"'
                 ) {
                     $quoteCount++;
                 }
@@ -396,9 +396,9 @@ final class Lexer
 
         // Check for multi-line
         if (
-            $this->pos + 2 < $this->length &&
-            $this->input[$this->pos + 1] === "'" &&
-            $this->input[$this->pos + 2] === "'"
+            $this->pos + 2 < $this->length
+            && $this->input[$this->pos + 1] === "'"
+            && $this->input[$this->pos + 2] === "'"
         ) {
             return $this->multiLineLiteralString();
         }
@@ -466,17 +466,17 @@ final class Lexer
         $valid = true;
         while ($this->pos < $this->length) {
             if (
-                $this->pos + 2 < $this->length &&
-                $this->input[$this->pos] === "'" &&
-                $this->input[$this->pos + 1] === "'" &&
-                $this->input[$this->pos + 2] === "'"
+                $this->pos + 2 < $this->length
+                && $this->input[$this->pos] === "'"
+                && $this->input[$this->pos + 1] === "'"
+                && $this->input[$this->pos + 2] === "'"
             ) {
                 // TOML allows up to 2 quotes at the end before closing '''
                 $quoteCount = 3;
                 while (
-                    $quoteCount < 5 &&
-                    $this->pos + $quoteCount < $this->length &&
-                    $this->input[$this->pos + $quoteCount] === "'"
+                    $quoteCount < 5
+                    && $this->pos + $quoteCount < $this->length
+                    && $this->input[$this->pos + $quoteCount] === "'"
                 ) {
                     $quoteCount++;
                 }
@@ -755,9 +755,9 @@ final class Lexer
             // But only if it doesn't look like an attempted number literal
             // (signed values or values with 0x/0o/0b prefixes should be Invalid, not BareKey)
             if (
-                preg_match('/^[A-Za-z0-9_-]+$/', $value) &&
-                !preg_match('/^[+-]/', $value) &&
-                !preg_match('/^0[xXoObB]/', $value)
+                preg_match('/^[A-Za-z0-9_-]+$/', $value)
+                && !preg_match('/^[+-]/', $value)
+                && !preg_match('/^0[xXoObB]/', $value)
             ) {
                 return new Token(TokenType::BareKey, $value, $value, $span);
             }
