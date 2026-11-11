@@ -125,9 +125,9 @@ final class Parser
                     $currentTable = $table;
                 }
             } elseif (
-                $token->is(TokenType::BareKey, TokenType::BasicString, TokenType::LiteralString, TokenType::Invalid) ||
-                $token->is(TokenType::Integer, TokenType::Float, TokenType::Boolean) ||
-                $token->is(TokenType::LocalDate, TokenType::LocalTime, TokenType::LocalDateTime, TokenType::OffsetDateTime)
+                $token->is(TokenType::BareKey, TokenType::BasicString, TokenType::LiteralString, TokenType::Invalid)
+                || $token->is(TokenType::Integer, TokenType::Float, TokenType::Boolean)
+                || $token->is(TokenType::LocalDate, TokenType::LocalTime, TokenType::LocalDateTime, TokenType::OffsetDateTime)
             ) {
                 $kv = $this->parseKeyValue();
                 if ($kv !== null) {
